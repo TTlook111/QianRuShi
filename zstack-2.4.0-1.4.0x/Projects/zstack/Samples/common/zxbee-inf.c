@@ -1,15 +1,5 @@
-/*********************************************************************************************
-* 文件：zxbee-inf.c
-* 作者：Xuzhy 2018.5.16
-* 说明：ZXBee通信协议数据包收发
-* 修改：
-* 注释：
-*********************************************************************************************/
-
-/*********************************************************************************************
-* 头文件
-*********************************************************************************************/
-#include<string.h>
+#include <string.h>
+#include <stdlib.h>
 #include "hal_types.h"
 #include "AppCommon.h"
 #include "hal_led.h"
@@ -18,79 +8,101 @@
 #include "sapi.h"
 #include "stdio.h"
 #include "zxbee-inf.h"
-/*********************************************************************************************
-* 宏定义
-*********************************************************************************************/
+
 #define DEBUG 0
 #if DEBUG
-#define Debug   printf
+#define Debug printf
 #else
 #define Debug(...)
 #endif
-/*********************************************************************************************
-* 名称：ZXBeeInfInit()
-* 功能：ZXBee接口初始化
-* 参数：
-* 返回：
-* 修改：
-* 注释：
-*********************************************************************************************/
+
+static uint8 localAddr = ZXBEE_ADDR_COORD;
+
+void ZXBeeInfSetLocalAddr(uint8 addr)
+{
+  localAddr = addr;
+}
+
+static uint8 ZXBeeLocalAddr(void)
+{
+  return localAddr;
+}
+
+static uint8 ZXBeeCmdFromPayload(char *p)
+{
+  if (p == NULL) return CMD_REPORT;
+  if (strstr(p, "\"reset\"") != NULL) return CMD_RESET;
+  if (strstr(p, "\"unlock\"") != NULL || strstr(p, "\"buzz\"") != NULL || strstr(p, "\"rgb\"") != NULL) return CMD_WRITE;
+  if (strstr(p, "\"alert\"") != NULL) return CMD_ALARM;
+  return CMD_REPORT;
+}
+
 void ZXBeeInfInit(void)
 {
-
 }
 
 void ZXBeeSendConfirm(uint8 h, uint8 st)
 {
   uint8 GetLinkStatus(void);
   static int8 txError = 0;
-  if (h == 0xaa){
+  if (h == 0xaa) {
     if (GetLinkStatus()) {
       if (st == 0) {
         txError = 0;
-      } else  txError += 1;
-      
+      } else {
+        txError += 1;
+      }
       if (txError >= 5) {
         void myReset(void);
-        //zb_SystemReset();
         myReset();
       }
     }
   }
 }
-/*********************************************************************************************
-* 名称：ZXBeeInfSend()
-* 功能：节点发送无线数据包给汇集节点
-* 参数：*p -- 要发送的无线数据包
-* 返回：
-* 修改：
-* 注释：
-*********************************************************************************************/
+
 void ZXBeeInfSend(char *p, int len)
 {
-    HalLedSet( HAL_LED_1, HAL_LED_MODE_OFF );
-    HalLedSet( HAL_LED_1, HAL_LED_MODE_BLINK );
+  uint8 frame[ZXBEE_MAX_FRAME_LEN];
+  uint8 *sendBuf;
+  int sendLen;
+  int i;
+
+  if (p == NULL || len <= 0) return;
+
+  HalLedSet(HAL_LED_1, HAL_LED_MODE_OFF);
+  HalLedSet(HAL_LED_1, HAL_LED_MODE_BLINK);
+
+  if ((uint8)p[0] == ZXBEE_SOF && (uint8)p[len - 1] == ZXBEE_EOF) {
+    sendBuf = (uint8*)p;
+    sendLen = len;
+  } else {
+    sendLen = ZXBee_BuildFrame(ZXBEE_ADDR_COORD, ZXBeeLocalAddr(), ZXBeeCmdFromPayload(p), p, frame);
+    sendBuf = frame;
+  }
+
+  if (sendLen <= 0) return;
+
 #if DEBUG
-    Debug("Debug send:");
-    for (int i=0; i<len; i++) {
-      Debug("%c", p[i]);
-    }
-    Debug("\r\n");
+  Debug("Debug send:");
+  for (i = 0; i < sendLen; i++) {
+    Debug("%02X ", sendBuf[i]);
+  }
+  Debug("\r\n");
 #endif
-    zb_SendDataRequest( 0, 0, len, (uint8*)p, 0xaa, AF_ACK_REQUEST, AF_DEFAULT_RADIUS );
+  zb_SendDataRequest(0, 0, sendLen, sendBuf, 0xaa, AF_ACK_REQUEST, AF_DEFAULT_RADIUS);
 }
-/*********************************************************************************************
-* 名称：ZXBeeInfRecv()
-* 功能：节点收到无线数据包
-* 参数：*pkg -- 收到的无线数据包
-* 返回：
-* 修改：
-* 注释：
-*********************************************************************************************/
+
 void ZXBeeInfRecv(char *pkg, int len)
 {
+  uint8 frame[ZXBEE_MAX_FRAME_LEN];
   char *p = ZXBeeDecodePackage(pkg, len);
+  int frameLen;
+
   if (p != NULL) {
-    ZXBeeInfSend(p, strlen(p));
+    frameLen = ZXBee_BuildFrame(ZXBEE_ADDR_COORD, ZXBeeLocalAddr(), CMD_REPORT, p, frame);
+    if (frameLen > 0) {
+      ZXBeeInfSend((char*)frame, frameLen);
+    }
   }
 }
+
