@@ -1,8 +1,16 @@
 # Local IDE metadata
 .idea/
+.vscode/
 
 # Office temporary lock files
 ~$*
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
 
 # Extracted/temporary analysis text
 _extracted_text/
@@ -22,3 +30,6 @@ _extracted_text/
 *.map
 *.d51
 *.hex
+*.bin
+*.out
+*.sim
