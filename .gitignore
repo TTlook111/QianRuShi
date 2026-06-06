@@ -1,0 +1,24 @@
+# Local IDE metadata
+.idea/
+
+# Office temporary lock files
+~$*
+
+# Extracted/temporary analysis text
+_extracted_text/
+
+# IAR/Z-Stack build outputs
+**/Obj/
+**/List/
+**/Exe/
+**/Debug/
+**/Release/
+
+# Generic generated binaries
+*.r51
+*.pbi
+*.pbi.cout
+*.lst
+*.map
+*.d51
+*.hex

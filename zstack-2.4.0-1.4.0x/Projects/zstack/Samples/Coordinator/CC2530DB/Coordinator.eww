@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<workspace>
+  <project>
+    <path>$WS_DIR$\Coordinator.ewp</path>
+  </project>
+  <batchBuild>
+    <batchDefinition>
+      <name>ALL</name>
+    </batchDefinition>
+  </batchBuild>
+</workspace>
+
+
