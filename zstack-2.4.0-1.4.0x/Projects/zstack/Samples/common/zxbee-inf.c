@@ -16,16 +16,27 @@
 #define Debug(...)
 #endif
 
-static uint8 localAddr = ZXBEE_ADDR_COORD;
+static uint16 localAddr = ZXBEE_ADDR_COORD;
 
-void ZXBeeInfSetLocalAddr(uint8 addr)
+void ZXBeeInfSetLocalAddr(uint16 addr)
 {
   localAddr = addr;
 }
 
-static uint8 ZXBeeLocalAddr(void)
+static uint16 ZXBeeLocalAddr(void)
 {
   return localAddr;
+}
+
+static uint8 payloadHasValue(char *p, char *key, char *value)
+{
+  char pat[24];
+  if (p == NULL || key == NULL || value == NULL) return 0;
+  sprintf(pat, "\"%s\":%s", key, value);
+  if (strstr(p, pat) != NULL) return 1;
+  sprintf(pat, "\"%s\":\"%s\"", key, value);
+  if (strstr(p, pat) != NULL) return 1;
+  return 0;
 }
 
 static uint8 ZXBeeCmdFromPayload(char *p)
@@ -33,7 +44,10 @@ static uint8 ZXBeeCmdFromPayload(char *p)
   if (p == NULL) return CMD_REPORT;
   if (strstr(p, "\"reset\"") != NULL) return CMD_RESET;
   if (strstr(p, "\"unlock\"") != NULL || strstr(p, "\"buzz\"") != NULL || strstr(p, "\"rgb\"") != NULL) return CMD_WRITE;
-  if (strstr(p, "\"alert\"") != NULL) return CMD_ALARM;
+  if (payloadHasValue(p, "alert", "1") || payloadHasValue(p, "alert", "2") ||
+      payloadHasValue(p, "night", "1") || strstr(p, "\"stay\"") != NULL) {
+    return CMD_ALARM;
+  }
   return CMD_REPORT;
 }
 

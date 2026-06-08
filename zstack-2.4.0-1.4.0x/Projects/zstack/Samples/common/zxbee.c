@@ -81,7 +81,7 @@ uint8 ZXBee_CheckSum(uint8 *buf, int len)
   return (uint8)(sum & 0xFF);
 }
 
-int ZXBee_BuildFrame(uint8 dst, uint8 src, uint8 cmd, char *payload, uint8 *out)
+int ZXBee_BuildFrame(uint16 dst, uint16 src, uint8 cmd, char *payload, uint8 *out)
 {
   uint8 plen;
   if (payload == NULL || out == NULL) return 0;
@@ -89,32 +89,34 @@ int ZXBee_BuildFrame(uint8 dst, uint8 src, uint8 cmd, char *payload, uint8 *out)
   if (plen >= ZXBEE_MAX_PAYLOAD_LEN) return 0;
 
   out[0] = ZXBEE_SOF;
-  out[1] = dst;
-  out[2] = src;
-  out[3] = cmd;
-  out[4] = plen;
-  memcpy(out + 5, payload, plen);
-  out[5 + plen] = ZXBee_CheckSum(out, 5 + plen);
-  out[6 + plen] = ZXBEE_EOF;
-  return plen + 7;
+  out[1] = (uint8)((dst >> 8) & 0xFF);
+  out[2] = (uint8)(dst & 0xFF);
+  out[3] = (uint8)((src >> 8) & 0xFF);
+  out[4] = (uint8)(src & 0xFF);
+  out[5] = cmd;
+  out[6] = plen;
+  memcpy(out + 7, payload, plen);
+  out[7 + plen] = ZXBee_CheckSum(out, 7 + plen);
+  out[8 + plen] = ZXBEE_EOF;
+  return plen + 9;
 }
 
 int ZXBee_ParseFrame(char *pkg, int len, ZXBeeFrame *frame)
 {
   uint8 plen;
-  if (pkg == NULL || frame == NULL || len < 7) return 0;
+  if (pkg == NULL || frame == NULL || len < 9) return 0;
   if ((uint8)pkg[0] != ZXBEE_SOF || (uint8)pkg[len - 1] != ZXBEE_EOF) return 0;
-  plen = (uint8)pkg[4];
-  if (len != (int)plen + 7) return 0;
-  if (ZXBee_CheckSum((uint8*)pkg, 5 + plen) != (uint8)pkg[5 + plen]) return 0;
+  plen = (uint8)pkg[6];
+  if (len != (int)plen + 9) return 0;
+  if (ZXBee_CheckSum((uint8*)pkg, 7 + plen) != (uint8)pkg[7 + plen]) return 0;
 
   if (plen >= ZXBEE_MAX_PAYLOAD_LEN) return 0;
-  memcpy(payloadBuf, pkg + 5, plen);
+  memcpy(payloadBuf, pkg + 7, plen);
   payloadBuf[plen] = 0;
 
-  frame->dst = (uint8)pkg[1];
-  frame->src = (uint8)pkg[2];
-  frame->cmd = (uint8)pkg[3];
+  frame->dst = ((uint16)(uint8)pkg[1] << 8) | (uint8)pkg[2];
+  frame->src = ((uint16)(uint8)pkg[3] << 8) | (uint8)pkg[4];
+  frame->cmd = (uint8)pkg[5];
   frame->len = plen;
   frame->payload = payloadBuf;
   return 1;

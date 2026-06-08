@@ -29,7 +29,7 @@
 /* PIR 触发配置 */
 #define PIR_TRIGGER_LEVEL       1                    /* 高电平 = 有人 */
 #define PIR_IDLE_LEVEL          0                    /* 低电平 = 无人 */
-#define PIR_INT_EDGE            GPIO_INT_FALLING_EDGE /* 下降沿触发 (人离开时) */
+#define PIR_INT_EDGE            GPIO_INT_RISING_EDGE  /* 上升沿触发 (有人靠近时) */
 
 /* PIR 抗抖动参数 */
 #define PIR_DEBOUNCE_MS         200                  /* 硬件去抖时间 (ms) */
