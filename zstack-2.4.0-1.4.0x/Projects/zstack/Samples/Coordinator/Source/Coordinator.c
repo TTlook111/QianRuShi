@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "zxbee.h"
 /*********************************************************************************************
 * 宏定义
 *********************************************************************************************/
@@ -107,9 +106,6 @@ static void processCommand(uint16 cmd, byte *dat, uint8 len);
 void my_FindDevice(uint8 searchType, uint8 *searchKey);
 int my_FindDeviceProc( uint16 source, uint16 command, uint16 len, uint8 *pData);
 static char* read_nb(char *buf, int len);
-static void send_to_mt(uint16 source, uint16 command, uint16 len, uint8 *pData);
-static int coord_build_frame(uint8 dst, uint8 src, uint8 cmd, uint8 *payload, uint8 payloadLen, uint8 *out);
-static int coord_parse_frame(char *pkg, int len, ZXBeeFrame *frame);
 static int (*process_command_call)(char *ptag, char *pval, char *pout);
 /*********************************************************************************************
 * 名称：zb_HandleOsalEvent()
@@ -163,28 +159,15 @@ void zb_HanderMsg(osal_event_hdr_t *msg)
   uint16 dAddr;
   uint16 cmd;
   uint16 addr = NLME_GetShortAddr();
-  uint8 frame[ZXBEE_MAX_FRAME_LEN];
-  uint8 *sendBuf;
-  uint8 sendLen;
   
   HalLedSet( HAL_LED_1, HAL_LED_MODE_OFF );
   HalLedSet( HAL_LED_1, HAL_LED_MODE_BLINK );
   if (pMsg->hdr.event == MT_SYS_APP_MSG) {
-    if (pMsg->appDataLen < 4) return;
+    //if (pMsg->appDataLen < 4) return;
     dAddr = pMsg->appData[0]<<8 | pMsg->appData[1];
     cmd = pMsg->appData[2]<<8 | pMsg->appData[3];
     if (dAddr != 0) {
-      sendBuf = pMsg->appData + 4;
-      sendLen = pMsg->appDataLen - 4;
-      if ((cmd == CMD_REPORT || cmd == CMD_ALARM || cmd == CMD_WRITE || cmd == CMD_RESET) &&
-          sendLen > 0 &&
-          ((uint8)sendBuf[0] != ZXBEE_SOF || (uint8)sendBuf[sendLen - 1] != ZXBEE_EOF)) {
-        sendLen = coord_build_frame((uint8)dAddr, ZXBEE_ADDR_COORD, (uint8)cmd, sendBuf, sendLen, frame);
-        sendBuf = frame;
-      }
-      if (sendLen > 0) {
-        zb_SendDataRequest(dAddr, 0, sendLen, sendBuf, 0, AF_ACK_REQUEST, AF_DEFAULT_RADIUS );
-      }
+      zb_SendDataRequest(dAddr, cmd, pMsg->appDataLen-4, pMsg->appData+4, 0, AF_ACK_REQUEST, AF_DEFAULT_RADIUS );
     }
     if (dAddr == 0 || dAddr == 0xffff) {
       processCommand(cmd, pMsg->appData+4, pMsg->appDataLen-4);
@@ -292,20 +275,8 @@ void zb_FindDeviceConfirm( uint8 searchType, uint8 *searchKey, uint8 *result )
 *********************************************************************************************/
 void zb_ReceiveDataIndication( uint16 source, uint16 command, uint16 len, uint8 *pData  )
 {
-    ZXBeeFrame frame;
     HalLedSet( HAL_LED_1, HAL_LED_MODE_OFF );
     HalLedSet( HAL_LED_1, HAL_LED_MODE_BLINK );
-    if (command == 0) {
-      if (coord_parse_frame((char*)pData, len, &frame)) {
-        send_to_mt(source, 0, frame.len, (uint8*)frame.payload);
-        return;
-      }
-    }
-    send_to_mt(source, command, len, pData);
-}
-
-static void send_to_mt(uint16 source, uint16 command, uint16 len, uint8 *pData)
-{
     mtOSALSerialData_t* msg = (mtOSALSerialData_t*)osal_msg_allocate(sizeof(mtOSALSerialData_t)+len+4);
     if (msg) {
       msg->hdr.event = MT_SYS_APP_RSP_MSG;
@@ -318,54 +289,6 @@ static void send_to_mt(uint16 source, uint16 command, uint16 len, uint8 *pData)
       osal_memcpy(msg->msg+4, pData, len);
       osal_msg_send( MT_TaskID, (uint8 *)msg );
     } 
-}
-
-static uint8 coord_checksum(uint8 *buf, int len)
-{
-  uint16 sum = 0;
-  int i;
-  for (i = 0; i < len; i++) {
-    sum += buf[i];
-  }
-  return (uint8)(sum & 0xFF);
-}
-
-static int coord_build_frame(uint8 dst, uint8 src, uint8 cmd, uint8 *payload, uint8 payloadLen, uint8 *out)
-{
-  if (payload == NULL || out == NULL) return 0;
-  if (payloadLen >= ZXBEE_MAX_PAYLOAD_LEN) return 0;
-
-  out[0] = ZXBEE_SOF;
-  out[1] = dst;
-  out[2] = src;
-  out[3] = cmd;
-  out[4] = payloadLen;
-  osal_memcpy(out + 5, payload, payloadLen);
-  out[5 + payloadLen] = coord_checksum(out, 5 + payloadLen);
-  out[6 + payloadLen] = ZXBEE_EOF;
-  return payloadLen + 7;
-}
-
-static int coord_parse_frame(char *pkg, int len, ZXBeeFrame *frame)
-{
-  static char payloadBuf[ZXBEE_MAX_PAYLOAD_LEN];
-  uint8 plen;
-  if (pkg == NULL || frame == NULL || len < 7) return 0;
-  if ((uint8)pkg[0] != ZXBEE_SOF || (uint8)pkg[len - 1] != ZXBEE_EOF) return 0;
-  plen = (uint8)pkg[4];
-  if (len != (int)plen + 7) return 0;
-  if (coord_checksum((uint8*)pkg, 5 + plen) != (uint8)pkg[5 + plen]) return 0;
-  if (plen >= ZXBEE_MAX_PAYLOAD_LEN) return 0;
-
-  osal_memcpy(payloadBuf, pkg + 5, plen);
-  payloadBuf[plen] = 0;
-
-  frame->dst = (uint8)pkg[1];
-  frame->src = (uint8)pkg[2];
-  frame->cmd = (uint8)pkg[3];
-  frame->len = plen;
-  frame->payload = payloadBuf;
-  return 1;
 }
 /*********************************************************************************************
 * 名称：paramWrite()

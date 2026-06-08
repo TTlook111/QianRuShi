@@ -1121,6 +1121,9 @@
       <name>$PROJ_DIR$\..\Source\Flame.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\gpio_int.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\grating.c</name>
     </file>
     <file>
@@ -1137,6 +1140,9 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\relay.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\security_logic.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\sensor.c</name>

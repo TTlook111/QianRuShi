@@ -15,7 +15,7 @@
 #define CMD_WRITE               0x03
 #define CMD_RESET               0x06
 
-#define ZXBEE_MAX_PAYLOAD_LEN   109
+#define ZXBEE_MAX_PAYLOAD_LEN   96
 #define ZXBEE_MAX_FRAME_LEN     (ZXBEE_MAX_PAYLOAD_LEN + 7)
 
 typedef struct {
