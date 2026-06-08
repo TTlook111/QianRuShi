@@ -19,6 +19,6 @@
 @REM 
 
 
-"F:\IAR9101\common\bin\cspybat" "F:\IAR9101\8051\bin\8051proc.dll" "F:\IAR9101\8051\bin\8051emu_cc.dll"  %1 --plugin "F:\IAR9101\8051\bin\8051bat.dll" --backend -B "--proc_core" "plain" "--proc_code_model" "banked" "--proc_nr_virtual_regs" "8" "--proc_pdata_bank_reg_addr" "0x93" "--proc_dptr_nr_of" "1" "--proc_codebank_reg" "0x9F" "--proc_codebank_start" "0x8000" "--proc_codebank_end" "0xFFFF" "--proc_codebank_mask" "0xFF" "--proc_data_model" "large" "-p" "F:\IAR9101\8051\config\devices\Texas Instruments\ioCC2530F256.ddf" "--proc_exclude_exit_breakpoint" "--proc_driver" "chipcon" "--erase_flash" "--verify_download" "use_crc16" "--stack_overflow" "--number_of_banks" "4" 
+"E:\hu_lian_wang\common\bin\cspybat" "E:\hu_lian_wang\8051\bin\8051proc.dll" "E:\hu_lian_wang\8051\bin\8051emu_cc.dll"  %1 --plugin "E:\hu_lian_wang\8051\bin\8051bat.dll" --backend -B "--proc_core" "plain" "--proc_code_model" "banked" "--proc_nr_virtual_regs" "8" "--proc_pdata_bank_reg_addr" "0x93" "--proc_dptr_nr_of" "1" "--proc_codebank_reg" "0x9F" "--proc_codebank_start" "0x8000" "--proc_codebank_end" "0xFFFF" "--proc_codebank_mask" "0xFF" "--proc_data_model" "large" "-p" "E:\hu_lian_wang\8051\config\devices\Texas Instruments\ioCC2530F256.ddf" "--proc_exclude_exit_breakpoint" "--proc_driver" "chipcon" "--erase_flash" "--verify_download" "use_crc16" "--stack_overflow" "--number_of_banks" "4" 
 
 
