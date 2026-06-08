@@ -297,7 +297,7 @@ void zb_ReceiveDataIndication( uint16 source, uint16 command, uint16 len, uint8 
     HalLedSet( HAL_LED_1, HAL_LED_MODE_BLINK );
     if (command == 0) {
       if (coord_parse_frame((char*)pData, len, &frame)) {
-        send_to_mt(source, frame.cmd, frame.len, (uint8*)frame.payload);
+        send_to_mt(source, 0, frame.len, (uint8*)frame.payload);
         return;
       }
     }
