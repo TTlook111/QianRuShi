@@ -49,11 +49,16 @@ int8 ZXBeeAdd(char* tag, char* val)
 {
   int offset;
   int left;
+  int quote;
+  int needed;
   if (tag == NULL || val == NULL) return 0;
   offset = strlen(wbuf);
   left = ZXBEE_MAX_PAYLOAD_LEN - offset;
   if (left <= 2) return 0;
-  if (valueNeedsQuote(val)) {
+  quote = valueNeedsQuote(val);
+  needed = strlen(tag) + strlen(val) + (quote ? 6 : 4);
+  if (needed >= left) return 0;
+  if (quote) {
     sprintf(&wbuf[offset], "\"%s\":\"%s\",", tag, val);
   } else {
     sprintf(&wbuf[offset], "\"%s\":%s,", tag, val);
