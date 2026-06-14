@@ -34,3 +34,13 @@ _extracted_text/
 *.out
 *.sim
 # test
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local SQLite database
+*.db
+

@@ -1,0 +1,8 @@
+# sensor-e Python/PyQt5 依赖
+PyQt5>=5.15
+PyQtChart>=5.15
+pyserial>=3.5
+requests>=2.28
+websocket-client>=1.5
+matplotlib>=3.7
+pymysql>=1.0

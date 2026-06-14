@@ -1,0 +1,183 @@
+/* ============================================================
+   智能门禁访客管理系统 — PyQt5 样式表
+   E同学：Python应用层
+   ============================================================ */
+
+/* ---- 全局字体与背景 ---- */
+QWidget {
+    font-family: "Microsoft YaHei", "SimHei", sans-serif;
+    font-size: 13px;
+    color: #E0E0E0;
+    background-color: #1E1E2E;
+}
+
+/* ---- 主窗口 ---- */
+QMainWindow {
+    background-color: #1E1E2E;
+}
+
+/* ---- 分组框 ---- */
+QGroupBox {
+    border: 1px solid #3A3A5C;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 16px 12px 12px 12px;
+    background-color: #2A2A3E;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 2px 12px;
+    color: #B0B0D0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* ---- 按钮 ---- */
+QPushButton {
+    background-color: #3A7BDB;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: bold;
+    min-height: 32px;
+}
+
+QPushButton:hover {
+    background-color: #4A8BEB;
+}
+
+QPushButton:pressed {
+    background-color: #2A6BCB;
+}
+
+QPushButton:disabled {
+    background-color: #4A4A6A;
+    color: #808090;
+}
+
+/* 危险按钮 */
+QPushButton#btn_alarm {
+    background-color: #DB3A3A;
+}
+
+QPushButton#btn_alarm:hover {
+    background-color: #EB4A4A;
+}
+
+/* 成功按钮 */
+QPushButton#btn_unlock, QPushButton#btn_reset {
+    background-color: #2ECC71;
+}
+
+QPushButton#btn_unlock:hover, QPushButton#btn_reset:hover {
+    background-color: #3EDC81;
+}
+
+/* 门铃按钮 */
+QPushButton#btn_doorbell {
+    background-color: #3498DB;
+}
+
+QPushButton#btn_doorbell:hover {
+    background-color: #44A8EB;
+}
+
+/* ---- 标签 ---- */
+QLabel {
+    color: #C0C0D8;
+    background: transparent;
+}
+
+QLabel#title_label {
+    font-size: 20px;
+    font-weight: bold;
+    color: #FFFFFF;
+    padding: 8px 0;
+}
+
+QLabel#status_label {
+    font-size: 15px;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 4px;
+}
+
+/* ---- QLCDNumber ---- */
+QLCDNumber {
+    border: 1px solid #3A3A5C;
+    border-radius: 6px;
+    background-color: #1A1A2A;
+    color: #00E676;
+    min-height: 48px;
+}
+
+/* ---- 表格 ---- */
+QTableWidget {
+    background-color: #2A2A3E;
+    alternate-background-color: #252538;
+    border: 1px solid #3A3A5C;
+    border-radius: 6px;
+    gridline-color: #3A3A5C;
+    selection-background-color: #3A7BDB;
+    selection-color: white;
+}
+
+QTableWidget::item {
+    padding: 4px 8px;
+}
+
+QHeaderView::section {
+    background-color: #33334D;
+    color: #B0B0D0;
+    font-weight: bold;
+    padding: 6px;
+    border: none;
+    border-bottom: 2px solid #3A7BDB;
+}
+
+/* ---- 滚动条 ---- */
+QScrollBar:vertical {
+    background: #1E1E2E;
+    width: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #4A4A6A;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #5A5A7A;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* ---- 状态栏 ---- */
+QStatusBar {
+    background-color: #16162A;
+    color: #808090;
+    border-top: 1px solid #3A3A5C;
+}
+
+/* ---- 分隔线 ---- */
+QFrame#separator {
+    background-color: #3A3A5C;
+    max-height: 1px;
+}
+
+/* ---- 工具提示 ---- */
+QToolTip {
+    background-color: #33334D;
+    color: #E0E0E0;
+    border: 1px solid #3A7BDB;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
