@@ -43,9 +43,12 @@ static uint8 ZXBeeCmdFromPayload(char *p)
 {
   if (p == NULL) return CMD_REPORT;
   if (strstr(p, "\"reset\"") != NULL) return CMD_RESET;
-  if (strstr(p, "\"unlock\"") != NULL || strstr(p, "\"buzz\"") != NULL || strstr(p, "\"rgb\"") != NULL) return CMD_WRITE;
+  if (strstr(p, "\"unlock\"") != NULL || strstr(p, "\"buzz\"") != NULL ||
+      strstr(p, "\"rgb\"") != NULL || strstr(p, "\"arm\"") != NULL) {
+    return CMD_WRITE;
+  }
   if (payloadHasValue(p, "alert", "1") || payloadHasValue(p, "alert", "2") ||
-      payloadHasValue(p, "night", "1") || strstr(p, "\"stay\"") != NULL) {
+      strstr(p, "\"stay\"") != NULL) {
     return CMD_ALARM;
   }
   return CMD_REPORT;

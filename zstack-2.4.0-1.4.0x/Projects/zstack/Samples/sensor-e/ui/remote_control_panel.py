@@ -191,3 +191,16 @@ class RemoteControlPanel(QGroupBox):
             "color: #F39C12; font-size: 11px; padding: 4px; background: transparent;"
         )
         self.command_requested.emit(cmd)
+
+    def set_send_result(self, success: bool):
+        """显示通信层发送结果。"""
+        if success:
+            self._status_label.setText("✅ 平台已接收命令")
+            self._status_label.setStyleSheet(
+                "color: #2ECC71; font-size: 11px; padding: 4px; background: transparent;"
+            )
+        else:
+            self._status_label.setText("❌ 命令发送失败")
+            self._status_label.setStyleSheet(
+                "color: #E74C3C; font-size: 11px; padding: 4px; background: transparent;"
+            )

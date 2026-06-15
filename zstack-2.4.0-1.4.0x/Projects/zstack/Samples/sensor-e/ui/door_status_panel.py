@@ -5,7 +5,7 @@ E同学：Python应用层负责人
 """
 
 from PyQt5.QtWidgets import (
-    QGroupBox, QVBoxLayout, QHBoxLayout, QLabel, QFrame
+    QGroupBox, QVBoxLayout, QGridLayout, QLabel, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -18,14 +18,18 @@ class StatusIndicator(QFrame):
 
     def __init__(self, title, parent=None):
         super().__init__(parent)
+        self.setObjectName("status_card")
+        self.setMinimumHeight(104)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(4)
 
         # 状态圆点
         self._dot = QLabel("●")
         self._dot.setAlignment(Qt.AlignCenter)
-        self._dot.setFont(QFont("Arial", 28))
+        self._dot.setFont(QFont("Arial", 18))
         self._dot.setStyleSheet("color: #555555; background: transparent;")
         layout.addWidget(self._dot)
 
@@ -79,8 +83,8 @@ class DoorStatusPanel(QGroupBox):
         self._init_ui()
 
     def _init_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setSpacing(16)
+        layout = QGridLayout(self)
+        layout.setSpacing(10)
 
         # 四个状态指示器
         self._pir_indicator = StatusIndicator("👤 访客状态")
@@ -88,10 +92,12 @@ class DoorStatusPanel(QGroupBox):
         self._tch_indicator = StatusIndicator("🔔 门铃状态")
         self._alert_indicator = StatusIndicator("🛡️ 安全模式")
 
-        layout.addWidget(self._pir_indicator)
-        layout.addWidget(self._door_indicator)
-        layout.addWidget(self._tch_indicator)
-        layout.addWidget(self._alert_indicator)
+        layout.addWidget(self._pir_indicator, 0, 0)
+        layout.addWidget(self._door_indicator, 0, 1)
+        layout.addWidget(self._tch_indicator, 0, 2)
+        layout.addWidget(self._alert_indicator, 0, 3)
+        for col in range(4):
+            layout.setColumnStretch(col, 1)
 
         # 初始状态
         self._pir_indicator.set_active(False, "无人")

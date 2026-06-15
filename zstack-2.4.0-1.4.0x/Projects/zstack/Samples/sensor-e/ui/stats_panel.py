@@ -4,10 +4,8 @@ E同学：Python应用层负责人
 使用 matplotlib 嵌入 PyQt5 绘制日/周访客统计图
 """
 
-from datetime import datetime, timedelta
-
-from PyQt5.QtWidgets import QGroupBox, QVBoxLayout, QHBoxLayout, QPushButton, QWidget
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QGroupBox, QVBoxLayout, QGridLayout, QPushButton
+from PyQt5.QtCore import pyqtSignal
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -27,6 +25,7 @@ class StatsPanel(QGroupBox):
         - 事件类型分布饼图
         - 支持手动刷新
     """
+    export_requested = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__("📊 访客统计", parent)
@@ -41,37 +40,49 @@ class StatsPanel(QGroupBox):
         layout = QVBoxLayout(self)
 
         # 按钮行
-        btn_row = QHBoxLayout()
+        btn_row = QGridLayout()
+        btn_row.setSpacing(8)
 
         btn_daily = QPushButton("📅 日统计")
         btn_daily.clicked.connect(self._show_daily_chart)
-        btn_row.addWidget(btn_daily)
+        btn_row.addWidget(btn_daily, 0, 0)
 
         btn_event = QPushButton("📊 事件统计")
         btn_event.clicked.connect(self._show_event_chart)
-        btn_row.addWidget(btn_event)
+        btn_row.addWidget(btn_event, 0, 1)
 
         btn_refresh = QPushButton("🔄 刷新")
         btn_refresh.clicked.connect(self._show_daily_chart)
-        btn_row.addWidget(btn_refresh)
+        btn_row.addWidget(btn_refresh, 0, 2)
+
+        btn_export_log = QPushButton("⬇️ 导出日志")
+        btn_export_log.clicked.connect(lambda: self.export_requested.emit("access_log"))
+        btn_row.addWidget(btn_export_log, 1, 0)
+
+        btn_export_env = QPushButton("⬇️ 导出环境")
+        btn_export_env.clicked.connect(lambda: self.export_requested.emit("door_env"))
+        btn_row.addWidget(btn_export_env, 1, 1)
+
+        for col in range(3):
+            btn_row.setColumnStretch(col, 1)
 
         layout.addLayout(btn_row)
 
         # matplotlib 画布
-        self._figure = Figure(figsize=(6, 3), facecolor="#2A2A3E")
+        self._figure = Figure(figsize=(7, 2.8), facecolor="#171F2D")
         self._canvas = FigureCanvas(self._figure)
-        self._canvas.setMinimumHeight(200)
+        self._canvas.setMinimumHeight(230)
         layout.addWidget(self._canvas)
 
         # 默认显示空图表
         self._show_empty_chart()
 
-    def _show_empty_chart(self):
+    def _show_empty_chart(self, message="暂无统计数据\n点击上方按钮刷新"):
         """显示空白占位图表"""
         self._figure.clear()
         ax = self._figure.add_subplot(111)
-        ax.set_facecolor("#2A2A3E")
-        ax.text(0.5, 0.5, "暂无统计数据\n点击上方按钮刷新",
+        ax.set_facecolor("#171F2D")
+        ax.text(0.5, 0.5, message,
                 ha="center", va="center", fontsize=14,
                 color="#808090", transform=ax.transAxes)
         ax.set_xticks([])
@@ -84,7 +95,7 @@ class StatsPanel(QGroupBox):
         """显示最近7天每日访客次数条形图"""
         self._figure.clear()
         ax = self._figure.add_subplot(111)
-        ax.set_facecolor("#2A2A3E")
+        ax.set_facecolor("#171F2D")
 
         if self._db:
             data = self._db.get_daily_visitor_count(days=7)
@@ -92,13 +103,8 @@ class StatsPanel(QGroupBox):
             data = []
 
         if not data:
-            # 生成示例数据用于演示
-            import random
-            today = datetime.now().date()
-            data = []
-            for i in range(6, -1, -1):
-                day = today - timedelta(days=i)
-                data.append((day.strftime("%Y-%m-%d"), random.randint(3, 25)))
+            self._show_empty_chart("暂无访客统计数据\n触发门铃/PIR/门磁后刷新")
+            return
 
         days = [d[0][-5:] for d in data]      # 只显示 MM-DD
         counts = [d[1] for d in data]
@@ -111,6 +117,7 @@ class StatsPanel(QGroupBox):
             bar_colors = bar_colors + [colors[-1]] * (len(days) - len(bar_colors))
 
         bars = ax.bar(days, counts, color=bar_colors, width=0.6, edgecolor="none")
+        ax.set_ylim(0, max(counts) * 1.25 + 1)
 
         # 在柱子上方显示数值
         for bar, count in zip(bars, counts):
@@ -133,7 +140,7 @@ class StatsPanel(QGroupBox):
         """显示事件类型分布饼图"""
         self._figure.clear()
         ax = self._figure.add_subplot(111)
-        ax.set_facecolor("#2A2A3E")
+        ax.set_facecolor("#171F2D")
 
         if self._db:
             data = self._db.get_event_type_stats(days=7)
@@ -141,14 +148,8 @@ class StatsPanel(QGroupBox):
             data = []
 
         if not data:
-            # 示例数据
-            data = [
-                ("门铃", 12),
-                ("PIR检测", 8),
-                ("开门", 15),
-                ("徘徊", 3),
-                ("告警", 1),
-            ]
+            self._show_empty_chart("暂无事件分类数据\n触发门禁事件后刷新")
+            return
 
         labels = [d[0] for d in data]
         sizes = [d[1] for d in data]

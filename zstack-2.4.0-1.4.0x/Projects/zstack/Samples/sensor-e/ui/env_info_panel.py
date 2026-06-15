@@ -6,7 +6,7 @@ E同学：Python应用层负责人
 """
 
 from PyQt5.QtWidgets import (
-    QGroupBox, QHBoxLayout, QVBoxLayout, QLabel, QLCDNumber, QFrame
+    QGroupBox, QGridLayout, QVBoxLayout, QLabel, QLCDNumber, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -19,8 +19,12 @@ class EnvGauge(QFrame):
 
     def __init__(self, icon, title, unit, color="#00E676", parent=None):
         super().__init__(parent)
+        self.setObjectName("env_card")
+        self.setMinimumHeight(112)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(4)
 
         # 图标和标题
@@ -33,7 +37,7 @@ class EnvGauge(QFrame):
         # LCD 数字显示
         self._lcd = QLCDNumber(6)
         self._lcd.setSegmentStyle(QLCDNumber.Flat)
-        self._lcd.setMinimumHeight(56)
+        self._lcd.setMinimumHeight(48)
         self._lcd.setStyleSheet(
             f"QLCDNumber {{ color: {color}; background-color: #1A1A2A; "
             f"border: 1px solid #3A3A5C; border-radius: 6px; }}"
@@ -68,17 +72,19 @@ class EnvInfoPanel(QGroupBox):
         self._init_ui()
 
     def _init_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setSpacing(20)
+        layout = QGridLayout(self)
+        layout.setSpacing(10)
 
         # 三个仪表盘
         self._temp_gauge = EnvGauge("🌡️", "温度", "℃", "#FF7043")
         self._humi_gauge = EnvGauge("💧", "湿度", "%RH", "#42A5F5")
         self._lux_gauge = EnvGauge("☀️", "光照", "lux", "#FFCA28")
 
-        layout.addWidget(self._temp_gauge)
-        layout.addWidget(self._humi_gauge)
-        layout.addWidget(self._lux_gauge)
+        layout.addWidget(self._temp_gauge, 0, 0)
+        layout.addWidget(self._humi_gauge, 0, 1)
+        layout.addWidget(self._lux_gauge, 0, 2)
+        for col in range(3):
+            layout.setColumnStretch(col, 1)
 
     def update_data(self, data: dict):
         """

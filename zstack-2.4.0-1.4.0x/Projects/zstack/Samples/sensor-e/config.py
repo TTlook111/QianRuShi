@@ -5,14 +5,19 @@ E同学：Python应用层负责人
 """
 
 # ======================== 智云平台配置 ========================
-# TODO: 替换为课程提供的实际智云平台 API 地址
-CLOUD_API_BASE_URL = "http://cloud.example.com/api"
-CLOUD_API_KEY = ""                      # 智云平台 API Key
-CLOUD_DEVICE_ID = ""                    # 智云平台设备 ID
-CLOUD_POLL_INTERVAL_MS = 3000           # HTTP 轮询间隔（毫秒）
+USE_REAL_CLOUD = True                   # True=连接智云平台，False=使用模拟数据
+CLOUD_HOST = "api.zhiyun360.com"
+CLOUD_UID = "736952991135"              # 智云应用 ID
+CLOUD_KEY = "AAECDgYAAQsBUFJUAQADWFNTXAwcUwsHVB4CWwYDFAwGVAMYUwpVC1dTDgsJBwAMXA"
+CLOUD_WS_URL = f"wss://{CLOUD_HOST}:28090"
+CLOUD_TCP_HOST = CLOUD_HOST
+CLOUD_TCP_PORT = 28082
 
-# WebSocket 实时推送地址
-CLOUD_WS_URL = "ws://cloud.example.com/ws"
+# HTTP 轮询配置（备用模拟/HTTP模式）
+CLOUD_API_BASE_URL = f"http://{CLOUD_HOST}/api"
+CLOUD_API_KEY = CLOUD_KEY
+CLOUD_DEVICE_ID = CLOUD_UID
+CLOUD_POLL_INTERVAL_MS = 3000           # HTTP 轮询间隔（毫秒）
 
 # ======================== 串口配置（备用直连模式）========================
 SERIAL_PORT = "COM3"                    # 串口号，根据实际修改
@@ -30,7 +35,7 @@ SQLITE_DB_PATH = "door_access.db"       # SQLite 数据库文件路径
 MYSQL_HOST = "localhost"
 MYSQL_PORT = 3306
 MYSQL_USER = "root"
-MYSQL_PASSWORD = "123456yhj"
+MYSQL_PASSWORD = "123456"
 MYSQL_DATABASE = "door_access"
 
 # ======================== ZigBee 节点地址映射 ========================
@@ -46,6 +51,13 @@ NODE_NAME = {
     0x0001: "环境采集(601)",
     0x0002: "控制执行(602)",
     0x0003: "安防检测(603)",
+}
+
+# ======================== 智云节点 MAC 地址映射 ========================
+NODE_MAC = {
+    "sensor-a": "00:12:4B:00:1C:45:BD:01",
+    "sensor-b": "00:12:4B:00:1C:45:BB:54",
+    "sensor-c": "00:12:4B:00:1C:46:65:DE",
 }
 
 # ======================== 项目统一字段定义 ========================
@@ -92,4 +104,4 @@ CMD_RESET = 0x06                        # 告警解除
 # ======================== UI 配置 ========================
 WINDOW_TITLE = "智能门禁访客管理系统"
 WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 800
+WINDOW_HEIGHT = 900

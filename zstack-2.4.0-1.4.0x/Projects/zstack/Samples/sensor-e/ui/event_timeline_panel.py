@@ -61,6 +61,8 @@ class EventTimelinePanel(QGroupBox):
 
     def __init__(self, parent=None):
         super().__init__("📋 访客事件时间线", parent)
+        self._last_values = {}
+        self._loiter_reported = False
         self._init_ui()
 
     def _init_ui(self):
@@ -153,7 +155,77 @@ class EventTimelinePanel(QGroupBox):
         参数：
             data — 传感器数据字典
         """
-        # 门铃触发
+        # 门铃触发（只在按下边沿记录）
+        if config.FIELD_TCH in data:
+            tch = int(data.get(config.FIELD_TCH, 0))
+            last_tch = self._last_values.get(config.FIELD_TCH)
+            self._last_values[config.FIELD_TCH] = tch
+            if tch == 1 and last_tch != 1:
+                self.add_event(
+                    config.EVENT_DOORBELL,
+                    sensor="sensor-c",
+                    detail="有人按下门铃",
+                    alert=0
+                )
+
+        # PIR 检测到人 / 徘徊
+        if config.FIELD_PIR in data:
+            pir = int(data.get(config.FIELD_PIR, 0))
+            stay = int(data.get(config.FIELD_STAY, 0))
+            last_pir = self._last_values.get(config.FIELD_PIR)
+            self._last_values[config.FIELD_PIR] = pir
+            if pir == 0:
+                self._loiter_reported = False
+            elif stay > 10 and not self._loiter_reported:
+                self._loiter_reported = True
+                self.add_event(
+                    config.EVENT_LOITER,
+                    sensor="sensor-c",
+                    detail=f"有人徘徊 {stay} 秒",
+                    alert=max(1, int(data.get(config.FIELD_ALERT, 0)))
+                )
+            elif pir == 1 and last_pir != 1:
+                self.add_event(
+                    config.EVENT_PIR_DETECT,
+                    sensor="sensor-c",
+                    detail="门口检测到人",
+                    alert=0
+                )
+
+        # 门状态变化
+        if config.FIELD_DOOR in data:
+            door = int(data[config.FIELD_DOOR])
+            last_door = self._last_values.get(config.FIELD_DOOR)
+            self._last_values[config.FIELD_DOOR] = door
+            if last_door is None or door == last_door:
+                return
+            alert = int(data.get(config.FIELD_ALERT, 0))
+            night = int(data.get(config.FIELD_NIGHT, 0))
+            if door:
+                if night and alert >= 2:
+                    self.add_event(
+                        config.EVENT_INTRUSION,
+                        sensor="sensor-c",
+                        detail="夜间未授权开门",
+                        alert=2
+                    )
+                else:
+                    self.add_event(
+                        config.EVENT_DOOR_OPEN,
+                        sensor="sensor-c",
+                        detail="门被打开",
+                        alert=alert
+                    )
+            else:
+                self.add_event(
+                    config.EVENT_DOOR_CLOSE,
+                    sensor="sensor-c",
+                    detail="门已关闭",
+                    alert=0
+                )
+
+    def process_sensor_data_old(self, data: dict):
+        """保留旧逻辑参考，不再调用。"""
         if data.get(config.FIELD_TCH) == 1:
             self.add_event(
                 config.EVENT_DOORBELL,

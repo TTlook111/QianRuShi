@@ -5,7 +5,7 @@ E同学：Python应用层负责人
 支持 SQLite 与 MySQL 灵活切换，通过 config.DATABASE_TYPE 控制
 """
 
-import os
+import csv
 import logging
 from datetime import datetime, timedelta
 from contextlib import contextmanager
@@ -110,6 +110,23 @@ class Database:
                     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            self._ensure_index(cursor, "idx_access_log_time", "access_log", "create_time")
+            self._ensure_index(cursor, "idx_access_log_event", "access_log", "event_type, create_time")
+            self._ensure_index(cursor, "idx_door_env_time", "door_env", "create_time")
+
+    def _ensure_index(self, cursor, index_name, table_name, columns):
+        """创建常用查询索引；重复创建时静默跳过。"""
+        try:
+            if self.db_type == "mysql":
+                cursor.execute(
+                    f"CREATE INDEX {index_name} ON {table_name} ({columns})"
+                )
+            else:
+                cursor.execute(
+                    f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns})"
+                )
+        except Exception as e:
+            logger.debug("索引已存在或创建失败 %s: %s", index_name, e)
 
     def _param(self):
         """返回参数占位符"""
@@ -169,6 +186,21 @@ class Database:
             )
             return cursor.rowcount
 
+    def has_recent_access_event(self, sensor: str, event_type: str, value: int, seconds=3):
+        """判断短时间内是否已有同类事件，避免持续上报导致重复刷屏/刷库。"""
+        p = self._param()
+        cutoff = datetime.now() - timedelta(seconds=seconds)
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""SELECT id FROM access_log
+                   WHERE sensor = {p} AND event_type = {p} AND value = {p}
+                     AND create_time >= {p}
+                   ORDER BY create_time DESC LIMIT 1""",
+                (sensor, event_type, value, cutoff.strftime("%Y-%m-%d %H:%M:%S"))
+            )
+            return cursor.fetchone() is not None
+
     # ======================== door_env CRUD ========================
 
     def insert_door_env(self, env: DoorEnv):
@@ -202,6 +234,48 @@ class Database:
                     cursor.execute(f"SELECT * FROM door_env ORDER BY create_time DESC LIMIT {p}", (limit,))
             rows = cursor.fetchall()
             return [self._row_to_door_env(r) for r in rows]
+
+    # ======================== 导出 ========================
+
+    def export_table_csv(self, table_name: str, file_path: str, limit=1000):
+        """导出 access_log 或 door_env 为 CSV。"""
+        if table_name not in ("access_log", "door_env"):
+            raise ValueError("只支持导出 access_log 或 door_env")
+
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            if self.db_type == "mysql":
+                cursor.execute(f"SELECT * FROM {table_name} ORDER BY id DESC LIMIT {int(limit)}")
+            else:
+                cursor.execute(f"SELECT * FROM {table_name} ORDER BY id DESC LIMIT ?", (limit,))
+            rows = cursor.fetchall()
+
+        if not rows:
+            headers = {
+                "access_log": ["id", "student_id", "sensor", "event_type", "value", "alert", "is_remote_unlock", "create_time"],
+                "door_env": ["id", "student_id", "temp", "humi", "lux", "create_time"],
+            }[table_name]
+        else:
+            first = rows[0]
+            headers = list(first.keys()) if hasattr(first, "keys") else list(first)
+
+        with open(file_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            for row in rows:
+                writer.writerow([row[h] for h in headers])
+
+        return len(rows)
+
+    def get_summary_counts(self):
+        """返回仪表盘摘要计数。"""
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) AS cnt FROM access_log")
+            access_count = cursor.fetchone()["cnt"]
+            cursor.execute("SELECT COUNT(*) AS cnt FROM door_env")
+            env_count = cursor.fetchone()["cnt"]
+        return access_count, env_count
 
     # ======================== 统计查询 ========================
 

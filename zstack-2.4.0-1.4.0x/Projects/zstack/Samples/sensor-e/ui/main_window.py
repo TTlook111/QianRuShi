@@ -9,7 +9,8 @@ from datetime import datetime
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QSplitter, QLabel, QStatusBar, QFrame
+    QSplitter, QLabel, QStatusBar, QFileDialog, QMessageBox,
+    QScrollArea, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
@@ -18,11 +19,13 @@ import config
 from data.database import Database
 from data.models import AccessLog, DoorEnv, SensorState
 from communication.cloud_api import CloudAPI
+from communication.websocket_client import WebSocketClient
 from ui.door_status_panel import DoorStatusPanel
 from ui.env_info_panel import EnvInfoPanel
 from ui.remote_control_panel import RemoteControlPanel
 from ui.event_timeline_panel import EventTimelinePanel
 from ui.stats_panel import StatsPanel
+from ui.system_status_panel import SystemStatusPanel
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +58,14 @@ class MainWindow(QMainWindow):
         # 初始化数据层
         self._db = Database()
         self._sensor_state = SensorState()
+        self._last_db_values = {}
+        self._loiter_db_reported = False
 
         # 初始化通信层
-        self._cloud_api = CloudAPI(self)
+        if config.USE_REAL_CLOUD:
+            self._cloud_api = WebSocketClient(self)
+        else:
+            self._cloud_api = CloudAPI(self)
 
         # 初始化UI
         self._init_ui()
@@ -67,16 +75,28 @@ class MainWindow(QMainWindow):
 
         # 加载历史数据
         self._load_history()
+        self._refresh_database_counts()
 
-        # 启动数据轮询
-        self._cloud_api.start_polling()
+        # 启动通信
+        if config.USE_REAL_CLOUD:
+            self._cloud_api.start()
+        else:
+            self._cloud_api.start_polling()
 
         logger.info("主窗口初始化完成")
 
     def _init_ui(self):
         """构建UI布局"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setCentralWidget(scroll)
+
         central = QWidget()
-        self.setCentralWidget(central)
+        central.setMinimumWidth(980)
+        scroll.setWidget(central)
+
         main_layout = QVBoxLayout(central)
         main_layout.setSpacing(8)
         main_layout.setContentsMargins(12, 8, 12, 8)
@@ -87,12 +107,14 @@ class MainWindow(QMainWindow):
         title_label = QLabel("🏠 智能门禁访客管理系统")
         title_label.setObjectName("title_label")
         title_label.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
+        title_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         title_row.addWidget(title_label)
 
         title_row.addStretch()
 
         # 连接状态指示
-        self._conn_label = QLabel("● 模拟模式")
+        mode_text = "● 智云连接中" if config.USE_REAL_CLOUD else "● 模拟模式"
+        self._conn_label = QLabel(mode_text)
         self._conn_label.setStyleSheet(
             "color: #F39C12; font-size: 13px; font-weight: bold; background: transparent;"
         )
@@ -109,6 +131,7 @@ class MainWindow(QMainWindow):
 
         # ---- 上半区：状态看板 + 远程控制 ----
         top_splitter = QSplitter(Qt.Horizontal)
+        top_splitter.setChildrenCollapsible(False)
 
         # 左侧：门禁看板 + 环境面板（纵向堆叠）
         left_widget = QWidget()
@@ -117,19 +140,29 @@ class MainWindow(QMainWindow):
         left_layout.setSpacing(8)
 
         self._door_panel = DoorStatusPanel()
-        left_layout.addWidget(self._door_panel)
+        left_layout.addWidget(self._door_panel, stretch=1)
 
         self._env_panel = EnvInfoPanel()
-        left_layout.addWidget(self._env_panel)
+        left_layout.addWidget(self._env_panel, stretch=1)
 
         top_splitter.addWidget(left_widget)
 
-        # 右侧：远程控制区
+        # 右侧：远程控制 + 运行诊断
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)
+
         self._control_panel = RemoteControlPanel()
-        top_splitter.addWidget(self._control_panel)
+        right_layout.addWidget(self._control_panel, stretch=1)
+
+        self._system_panel = SystemStatusPanel()
+        right_layout.addWidget(self._system_panel, stretch=1)
+
+        top_splitter.addWidget(right_widget)
 
         top_splitter.setSizes([700, 500])
-        main_layout.addWidget(top_splitter)
+        main_layout.addWidget(top_splitter, stretch=3)
 
         # ---- 中间区：事件时间线 ----
         self._timeline_panel = EventTimelinePanel()
@@ -138,6 +171,7 @@ class MainWindow(QMainWindow):
         # ---- 下半区：统计图表 ----
         self._stats_panel = StatsPanel()
         self._stats_panel.set_database(self._db)
+        self._stats_panel.export_requested.connect(self._on_export_requested)
         main_layout.addWidget(self._stats_panel, stretch=1)
 
         # ---- 状态栏 ----
@@ -158,6 +192,9 @@ class MainWindow(QMainWindow):
         self._cloud_api.data_received.connect(self._on_data_received)
         self._cloud_api.error_occurred.connect(self._on_error)
         self._cloud_api.command_sent.connect(self._on_command_sent)
+        if config.USE_REAL_CLOUD:
+            self._cloud_api.connected.connect(self._on_cloud_connected)
+            self._cloud_api.disconnected.connect(self._on_cloud_disconnected)
 
         # 远程控制按钮 → 发送命令
         self._control_panel.command_requested.connect(self._on_command_requested)
@@ -197,6 +234,8 @@ class MainWindow(QMainWindow):
 
         # 5. 数据库存储
         self._save_to_db(data)
+        self._system_panel.append_data(data)
+        self._refresh_database_counts()
 
         # 更新状态栏
         self._status_msg.setText(
@@ -247,28 +286,78 @@ class MainWindow(QMainWindow):
                 self._db.insert_door_env(env)
 
             # 保存安防事件
-            if data.get(config.FIELD_TCH) == 1:
-                log = AccessLog(
+            if config.FIELD_TCH in data:
+                tch = int(data.get(config.FIELD_TCH, 0))
+                last_tch = self._last_db_values.get(config.FIELD_TCH)
+                self._last_db_values[config.FIELD_TCH] = tch
+            else:
+                tch = None
+                last_tch = None
+
+            if tch == 1 and last_tch != 1:
+                self._insert_event_if_new(
                     sensor="tch",
                     event_type=config.EVENT_DOORBELL,
                     value=1,
                     alert=int(data.get(config.FIELD_ALERT, 0))
                 )
-                self._db.insert_access_log(log)
 
-            if data.get(config.FIELD_PIR) == 1:
+            if config.FIELD_PIR in data:
+                pir = int(data.get(config.FIELD_PIR, 0))
+                last_pir = self._last_db_values.get(config.FIELD_PIR)
+                self._last_db_values[config.FIELD_PIR] = pir
                 stay = int(data.get(config.FIELD_STAY, 0))
-                event_type = config.EVENT_LOITER if stay > 10 else config.EVENT_PIR_DETECT
-                log = AccessLog(
-                    sensor="pir",
+                if pir == 0:
+                    self._loiter_db_reported = False
+                elif stay > 10 and not self._loiter_db_reported:
+                    self._loiter_db_reported = True
+                    self._insert_event_if_new(
+                        sensor="pir",
+                        event_type=config.EVENT_LOITER,
+                        value=1,
+                        alert=max(1, int(data.get(config.FIELD_ALERT, 0)))
+                    )
+                elif pir == 1 and last_pir != 1:
+                    self._insert_event_if_new(
+                        sensor="pir",
+                        event_type=config.EVENT_PIR_DETECT,
+                        value=1,
+                        alert=int(data.get(config.FIELD_ALERT, 0))
+                    )
+
+            if config.FIELD_DOOR in data:
+                door = int(data.get(config.FIELD_DOOR, 0))
+                last_door = self._last_db_values.get(config.FIELD_DOOR)
+                self._last_db_values[config.FIELD_DOOR] = door
+                if last_door is None or door == last_door:
+                    return
+                alert = int(data.get(config.FIELD_ALERT, 0))
+                night = int(data.get(config.FIELD_NIGHT, 0))
+                if door == 1:
+                    event_type = config.EVENT_INTRUSION if alert == config.ALERT_ALARM or night == 1 else config.EVENT_DOOR_OPEN
+                else:
+                    event_type = config.EVENT_DOOR_CLOSE
+                self._insert_event_if_new(
+                    sensor="door",
                     event_type=event_type,
-                    value=1,
-                    alert=int(data.get(config.FIELD_ALERT, 0))
+                    value=door,
+                    alert=alert
                 )
-                self._db.insert_access_log(log)
 
         except Exception as e:
             logger.warning("数据库写入失败: %s", e)
+
+    def _insert_event_if_new(self, sensor, event_type, value, alert):
+        """短时间内同类事件只记一次，避免持续上报刷库。"""
+        if self._db.has_recent_access_event(sensor, event_type, value, seconds=3):
+            return
+        log = AccessLog(
+            sensor=sensor,
+            event_type=event_type,
+            value=value,
+            alert=alert
+        )
+        self._db.insert_access_log(log)
 
     # ======================== 命令发送 ========================
 
@@ -280,17 +369,20 @@ class MainWindow(QMainWindow):
             cmd — 命令字典（如 {"unlock": 1, "rgb": [0, 255, 0]}）
                   特殊字段 _target 指定目标节点（默认 sensor-b）
         """
-        target = cmd.pop("_target", "sensor-b")
+        target = cmd.get("_target", "sensor-b")
+        send_cmd = dict(cmd)
+        send_cmd.pop("_target", None)
 
         if target == "sensor-c":
-            self._cloud_api.send_to_sensor_c(cmd)
+            self._cloud_api.send_to_sensor_c(send_cmd)
         else:
-            self._cloud_api.send_to_sensor_b(cmd)
+            self._cloud_api.send_to_sensor_b(send_cmd)
 
-        logger.info("发送命令到 %s: %s", target, cmd)
+        logger.info("发送命令到 %s: %s", target, send_cmd)
+        self._system_panel.append_command(target, send_cmd)
 
         # 记录远程开门事件
-        if cmd.get("unlock") == 1:
+        if send_cmd.get("unlock") == 1:
             log = AccessLog(
                 sensor="remote",
                 event_type=config.EVENT_REMOTE_UNLOCK,
@@ -304,9 +396,10 @@ class MainWindow(QMainWindow):
                 detail="用户远程开门",
                 alert=0
             )
+            self._refresh_database_counts()
 
         # 记录告警解除事件
-        if cmd.get("reset") == 1:
+        if send_cmd.get("reset") == 1:
             self._timeline_panel.add_event(
                 config.EVENT_ALERT_RESET,
                 sensor="remote",
@@ -316,6 +409,7 @@ class MainWindow(QMainWindow):
 
     def _on_command_sent(self, success: bool):
         """命令发送结果回调"""
+        self._control_panel.set_send_result(success)
         if success:
             self._status_msg.setText(
                 f"✅ 命令发送成功 | {datetime.now().strftime('%H:%M:%S')}"
@@ -325,10 +419,52 @@ class MainWindow(QMainWindow):
                 f"❌ 命令发送失败 | {datetime.now().strftime('%H:%M:%S')}"
             )
 
+    def _on_cloud_connected(self):
+        """智云 WebSocket 连接成功"""
+        self._conn_label.setText("● 智云已连接")
+        self._conn_label.setStyleSheet(
+            "color: #2ECC71; font-size: 13px; font-weight: bold; background: transparent;"
+        )
+        self._system_panel.set_cloud_state("已认证", ok=True)
+
+    def _on_cloud_disconnected(self):
+        """智云 WebSocket 断开"""
+        self._conn_label.setText("● 智云已断开")
+        self._conn_label.setStyleSheet(
+            "color: #E74C3C; font-size: 13px; font-weight: bold; background: transparent;"
+        )
+        self._system_panel.set_disconnected()
+
     def _on_error(self, msg: str):
         """错误处理"""
         self._status_msg.setText(f"⚠️ {msg}")
         logger.error(msg)
+
+    def _on_export_requested(self, table_name):
+        """导出数据库表为 CSV。"""
+        default_name = f"{table_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出 CSV",
+            default_name,
+            "CSV Files (*.csv)"
+        )
+        if not file_path:
+            return
+        try:
+            count = self._db.export_table_csv(table_name, file_path)
+            QMessageBox.information(self, "导出完成", f"已导出 {count} 条记录。")
+        except Exception as e:
+            QMessageBox.warning(self, "导出失败", str(e))
+
+    def _refresh_database_counts(self):
+        """刷新诊断面板数据库摘要。"""
+        try:
+            access_count, env_count = self._db.get_summary_counts()
+            if hasattr(self, "_system_panel"):
+                self._system_panel.update_database_counts(access_count, env_count)
+        except Exception as e:
+            logger.debug("刷新数据库摘要失败: %s", e)
 
     # ======================== 工具方法 ========================
 
@@ -338,7 +474,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """窗口关闭时清理资源"""
-        self._cloud_api.stop_polling()
+        if config.USE_REAL_CLOUD:
+            self._cloud_api.stop()
+        else:
+            self._cloud_api.stop_polling()
         self._clock_timer.stop()
         logger.info("主窗口已关闭")
         event.accept()
