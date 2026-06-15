@@ -18,6 +18,7 @@ import config
 from data.database import Database
 from data.models import AccessLog, DoorEnv, SensorState
 from communication.cloud_api import CloudAPI
+from communication.websocket_client import WebSocketClient
 from ui.door_status_panel import DoorStatusPanel
 from ui.env_info_panel import EnvInfoPanel
 from ui.remote_control_panel import RemoteControlPanel
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
 
         # 初始化通信层
         self._cloud_api = CloudAPI(self)
+        self._ws_client = WebSocketClient(self)
 
         # 初始化UI
         self._init_ui()
@@ -68,8 +70,9 @@ class MainWindow(QMainWindow):
         # 加载历史数据
         self._load_history()
 
-        # 启动数据轮询
+        # 启动数据轮询与 WebSocket 监听
         self._cloud_api.start_polling()
+        self._ws_client.start()
 
         logger.info("主窗口初始化完成")
 
@@ -129,16 +132,27 @@ class MainWindow(QMainWindow):
         top_splitter.addWidget(self._control_panel)
 
         top_splitter.setSizes([700, 500])
-        main_layout.addWidget(top_splitter)
 
-        # ---- 中间区：事件时间线 ----
+        # ---- 创建垂直分割器，容纳：上半区、中间时间线、下半区统计 ----
+        v_splitter = QSplitter(Qt.Vertical)
+
+        # 1. 上半区放入垂直分割器
+        v_splitter.addWidget(top_splitter)
+
+        # 2. 中间区：事件时间线
         self._timeline_panel = EventTimelinePanel()
-        main_layout.addWidget(self._timeline_panel, stretch=2)
+        v_splitter.addWidget(self._timeline_panel)
 
-        # ---- 下半区：统计图表 ----
+        # 3. 下半区：统计图表
         self._stats_panel = StatsPanel()
         self._stats_panel.set_database(self._db)
-        main_layout.addWidget(self._stats_panel, stretch=1)
+        v_splitter.addWidget(self._stats_panel)
+
+        # 设置初始高度像素比例：上半区380px，中间时间线220px，下半区图表200px
+        v_splitter.setSizes([380, 220, 200])
+
+        # 将垂直分割器添加到主垂直布局中
+        main_layout.addWidget(v_splitter)
 
         # ---- 状态栏 ----
         status_bar = QStatusBar()
@@ -159,8 +173,30 @@ class MainWindow(QMainWindow):
         self._cloud_api.error_occurred.connect(self._on_error)
         self._cloud_api.command_sent.connect(self._on_command_sent)
 
+        # WebSocket连接与数据 -> 更新UI
+        self._ws_client.data_received.connect(self._on_data_received)
+        self._ws_client.error_occurred.connect(self._on_error)
+        self._ws_client.connected.connect(self._on_ws_connected)
+        self._ws_client.disconnected.connect(self._on_ws_disconnected)
+
         # 远程控制按钮 → 发送命令
         self._control_panel.command_requested.connect(self._on_command_requested)
+
+    def _on_ws_connected(self):
+        """WebSocket 连线认证成功回调"""
+        self._conn_label.setText("● 云端已连接")
+        self._conn_label.setStyleSheet(
+            "color: #2ECC71; font-size: 13px; font-weight: bold; background: transparent;"
+        )
+        self._status_msg.setText("✅ 智云 WebSocket 认证成功并在线")
+
+    def _on_ws_disconnected(self):
+        """WebSocket 连线断开回调"""
+        self._conn_label.setText("● 云端离线")
+        self._conn_label.setStyleSheet(
+            "color: #E74C3C; font-size: 13px; font-weight: bold; background: transparent;"
+        )
+        self._status_msg.setText("❌ 智云 WebSocket 连线断开")
 
     def _load_history(self):
         """从数据库加载历史事件"""
@@ -177,12 +213,54 @@ class MainWindow(QMainWindow):
         收到传感器数据后的统一处理入口
 
         流程：
-            1. 更新内存中的 SensorState
-            2. 刷新门禁看板
-            3. 刷新环境面板
-            4. 生成事件记录（事件时间线）
-            5. 存储到数据库
+            1. 兼容解析带 mac 硬件地址的智云上报数据
+            2. 更新内存中的 SensorState
+            3. 刷新门禁看板
+            4. 刷新环境面板
+            5. 生成事件记录（事件时间线）
+            6. 存储到数据库
         """
+        # 兼容处理带 addr 物理地址标识的智云上报数据
+        import json
+        if isinstance(data, dict) and "addr" in data:
+            mac_addr = data.get("addr", "").replace(":", "").upper()
+
+            payload = data.get("data", {})
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except Exception:
+                    payload = {}
+            
+            # 建立 MAC 地址与系统统一业务字段的映射关系
+            normalized_data = {}
+            if mac_addr == "00124B001C45BD01":   # sensor-a (环境采集)
+                normalized_data = {
+                    config.FIELD_TEMP: payload.get("temp"),
+                    config.FIELD_HUMI: payload.get("humi"),
+                    config.FIELD_LUX: payload.get("lux")
+                }
+            elif mac_addr == "00124B001C4665DE": # sensor-c (安防检测)
+                normalized_data = {
+                    config.FIELD_PIR: payload.get("pir"),
+                    config.FIELD_DOOR: payload.get("door"),
+                    config.FIELD_TCH: payload.get("tch"),
+                    config.FIELD_ALERT: payload.get("alert"),
+                    config.FIELD_STAY: payload.get("stay"),
+                    config.FIELD_NIGHT: payload.get("night")
+                }
+            elif mac_addr == "00124B001C45BB54": # sensor-b (控制执行)
+                normalized_data = {
+                    config.FIELD_UNLOCK: payload.get("unlock"),
+                    config.FIELD_BUZZ: payload.get("buzz"),
+                    config.FIELD_RGB: payload.get("rgb")
+                }
+            
+            # 只保留非 None 字段更新
+            data = {k: v for k, v in normalized_data.items() if v is not None}
+            if not data:
+                return # 无有效字段更新，直接返回
+
         # 1. 更新内存状态
         self._update_sensor_state(data)
 
@@ -282,12 +360,16 @@ class MainWindow(QMainWindow):
         """
         target = cmd.pop("_target", "sensor-b")
 
-        if target == "sensor-c":
-            self._cloud_api.send_to_sensor_c(cmd)
+        # 优先使用带有节点 MAC 封装的 WebSocket 进行实时控制下发
+        mac_addr = config.NODE_MAC.get(target)
+        if mac_addr:
+            self._ws_client.send_command(mac_addr, cmd)
+            self._on_command_sent(True)
         else:
-            self._cloud_api.send_to_sensor_b(cmd)
+            logger.warning("未找到节点 %s 的 MAC 地址，无法发送控制指令", target)
+            self._on_command_sent(False)
 
-        logger.info("发送命令到 %s: %s", target, cmd)
+        logger.info("发送命令到 %s (MAC: %s): %s", target, mac_addr, cmd)
 
         # 记录远程开门事件
         if cmd.get("unlock") == 1:
@@ -339,6 +421,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """窗口关闭时清理资源"""
         self._cloud_api.stop_polling()
+        self._ws_client.stop()
         self._clock_timer.stop()
         logger.info("主窗口已关闭")
         event.accept()
