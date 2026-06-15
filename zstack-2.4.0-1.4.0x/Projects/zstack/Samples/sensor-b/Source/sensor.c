@@ -323,8 +323,12 @@ void sensorCheck(void)
   if (doorbell_active) {
     if (osal_GetSystemClock() - doorbell_start_time >= 5000) {
       doorbell_active = 0;                                       // 5秒后清除门铃标志
-      /* 恢复告警等级对应颜色 */
-      _restore_led_for_alert(alert_level);
+      /* 恢复告警等级对应颜色（报警模式下蜂鸣器响则蓝灯） */
+      if (alert_level == ALERT_ALARM && buzz_mode > 0) {
+        rgbSet(0, 0, 255);                                       // 蜂鸣器响 → 蓝灯
+      } else {
+        _restore_led_for_alert(alert_level);
+      }
     }
   }
 
@@ -353,10 +357,17 @@ void sensorCheck(void)
       break;
 
     case ALERT_ALARM:
-      /* 告警模式：用户手动RGB不覆盖，但门铃期间也不覆盖蓝灯 */
+      /* 告警模式：用户手动RGB不覆盖，但门铃期间不覆盖蓝灯 */
       if (!user_rgb_override && !doorbell_active) {
-        if (!(rgb_r == 255 && rgb_g == 0 && rgb_b == 0)) {
-          _restore_led_for_alert(ALERT_ALARM);                    // 红灯
+        /* 蜂鸣器响时亮蓝灯，蜂鸣器关时亮红灯 */
+        if (buzz_mode > 0) {
+          if (!(rgb_r == 0 && rgb_g == 0 && rgb_b == 255)) {
+            rgbSet(0, 0, 255);                                   // 蓝灯 = 报警中
+          }
+        } else {
+          if (!(rgb_r == 255 && rgb_g == 0 && rgb_b == 0)) {
+            rgbSet(255, 0, 0);                                   // 红灯 = 告警静音
+          }
         }
       }
       /* 蜂鸣器告警不受用户RGB覆盖影响（安全优先）
@@ -599,7 +610,7 @@ int ZXBeeUserProcess(char *ptag, char *pval)
         _restore_led_for_alert(ALERT_ATTENTION);                 // 蓝灯
         break;
       case ALERT_ALARM:
-        _restore_led_for_alert(ALERT_ALARM);                     // 红灯
+        rgbSet(0, 0, 255);                                       // 蓝灯 = 报警中
         if (buzz_mode == 0) { buzzerOn(); buzz_mode = 1; }      // 蜂鸣器响
         break;
     }
