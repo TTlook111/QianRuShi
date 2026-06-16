@@ -27,6 +27,11 @@ EVENT_TYPE_NAMES = {
     config.EVENT_INTRUSION: "🚨 夜间入侵",
     config.EVENT_REMOTE_UNLOCK: "🔓 远程开门",
     config.EVENT_ALERT_RESET: "✅ 告警解除",
+    config.EVENT_FLAME_DETECT: "🔥 火焰检测",
+    config.EVENT_GAS_ALARM: "☁️ 气体超标",
+    config.EVENT_GRATING_BREAK: "📡 光栅遮断",
+    config.EVENT_VOICE_PLAY: "🔊 语音播报",
+    config.EVENT_ARM_CHANGE: "🛡️ 布防变更",
 }
 
 # 告警等级颜色
@@ -67,6 +72,7 @@ class EventTimelinePanel(QGroupBox):
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 12, 8, 8)
 
         # 创建表格
         self._table = QTableWidget(0, 5)
@@ -74,11 +80,16 @@ class EventTimelinePanel(QGroupBox):
             ["时间", "事件类型", "传感器", "详情", "告警等级"]
         )
 
+        # 设置最小高度，防止被压缩成一条线
+        self.setMinimumHeight(200)
+        self._table.setMinimumHeight(150)
+
         # 表格样式
         self._table.setAlternatingRowColors(True)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(32)  # 设置默认行高
 
         # 列宽设置
         header = self._table.horizontalHeader()
@@ -197,31 +208,70 @@ class EventTimelinePanel(QGroupBox):
             door = int(data[config.FIELD_DOOR])
             last_door = self._last_values.get(config.FIELD_DOOR)
             self._last_values[config.FIELD_DOOR] = door
-            if last_door is None or door == last_door:
-                return
-            alert = int(data.get(config.FIELD_ALERT, 0))
-            night = int(data.get(config.FIELD_NIGHT, 0))
-            if door:
-                if night and alert >= 2:
-                    self.add_event(
-                        config.EVENT_INTRUSION,
-                        sensor="sensor-c",
-                        detail="夜间未授权开门",
-                        alert=2
-                    )
+            if last_door is not None and door != last_door:
+                alert = int(data.get(config.FIELD_ALERT, 0))
+                night = int(data.get(config.FIELD_NIGHT, 0))
+                if door:
+                    if night and alert >= 2:
+                        self.add_event(
+                            config.EVENT_INTRUSION,
+                            sensor="sensor-c",
+                            detail="夜间未授权开门",
+                            alert=2
+                        )
+                    else:
+                        self.add_event(
+                            config.EVENT_DOOR_OPEN,
+                            sensor="sensor-c",
+                            detail="门被打开",
+                            alert=alert
+                        )
                 else:
                     self.add_event(
-                        config.EVENT_DOOR_OPEN,
+                        config.EVENT_DOOR_CLOSE,
                         sensor="sensor-c",
-                        detail="门被打开",
-                        alert=alert
+                        detail="门已关闭",
+                        alert=0
                     )
-            else:
+
+        # ---- 新增：sensor-c 扩展事件处理 ----
+        # 火焰检测
+        if config.FIELD_FLAME in data:
+            flame = int(data.get(config.FIELD_FLAME, 0))
+            last_flame = self._last_values.get(config.FIELD_FLAME)
+            self._last_values[config.FIELD_FLAME] = flame
+            if flame == 1 and last_flame != 1:
                 self.add_event(
-                    config.EVENT_DOOR_CLOSE,
+                    config.EVENT_FLAME_DETECT,
                     sensor="sensor-c",
-                    detail="门已关闭",
-                    alert=0
+                    detail="检测到火焰！",
+                    alert=2
+                )
+
+        # 可燃气体超标
+        if config.FIELD_GAS in data:
+            gas = int(data.get(config.FIELD_GAS, 0))
+            last_gas = self._last_values.get(config.FIELD_GAS)
+            self._last_values[config.FIELD_GAS] = gas
+            if gas == 1 and last_gas != 1:
+                self.add_event(
+                    config.EVENT_GAS_ALARM,
+                    sensor="sensor-c",
+                    detail="可燃气体超标！",
+                    alert=2
+                )
+
+        # 红外光栅遮断
+        if config.FIELD_GRATING in data:
+            grating = int(data.get(config.FIELD_GRATING, 0))
+            last_grating = self._last_values.get(config.FIELD_GRATING)
+            self._last_values[config.FIELD_GRATING] = grating
+            if grating == 1 and last_grating != 1:
+                self.add_event(
+                    config.EVENT_GRATING_BREAK,
+                    sensor="sensor-c",
+                    detail="红外光栅被遮断",
+                    alert=1
                 )
 
     def process_sensor_data_old(self, data: dict):

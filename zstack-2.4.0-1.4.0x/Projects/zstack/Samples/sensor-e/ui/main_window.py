@@ -1,6 +1,7 @@
 """
 main_window.py — 主窗口
 E同学：Python应用层负责人
+v2.0: 美化UI布局 + 补充sensor-c完整字段处理 + 事件时间线增强
 整合门禁看板、环境面板、远程控制、事件时间线、统计图表
 """
 
@@ -10,7 +11,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QLabel, QStatusBar, QFileDialog, QMessageBox,
-    QScrollArea, QSizePolicy
+    QScrollArea, QSizePolicy, QFrame
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
@@ -34,20 +35,22 @@ class MainWindow(QMainWindow):
     """
     智能门禁访客管理系统 — 主窗口
 
-    布局结构：
-    ┌─────────────────────────────────────────────┐
-    │              🏠 标题栏 + 连接状态              │
-    ├─────────────────────┬───────────────────────┤
-    │  门禁状态看板         │  远程控制区              │
-    ├─────────────────────┤                       │
-    │  环境信息面板         │                       │
-    ├─────────────────────┴───────────────────────┤
-    │              访客事件时间线                     │
-    ├─────────────────────────────────────────────┤
-    │              访客统计图表                      │
-    ├─────────────────────────────────────────────┤
-    │              状态栏                           │
-    └─────────────────────────────────────────────┘
+    v2.0 布局结构：
+    ┌─────────────────────────────────────────────────────────┐
+    │              🏠 标题栏 + 连接状态 + 时钟                  │
+    ├─────────────────────────────┬───────────────────────────┤
+    │  🚪 门禁状态看板 (全宽)       │                           │
+    ├─────────────────────────────┤                           │
+    │  🌍 环境信息(含实时曲线)      │  🎮 远程控制区             │
+    ├─────────────────────────────┤  (门锁/门铃/告警/夜间/     │
+    │  (左侧)                      │   布防/语音播报)           │
+    ├─────────────────────────────┴───────────────────────────┤
+    │              📋 访客事件时间线                            │
+    ├─────────────────────────────────────────────────────────┤
+    │              📊 访客统计图表                              │
+    ├─────────────────────────────────────────────────────────┤
+    │              状态栏                                      │
+    └─────────────────────────────────────────────────────────┘
     """
 
     def __init__(self):
@@ -98,19 +101,22 @@ class MainWindow(QMainWindow):
         scroll.setWidget(central)
 
         main_layout = QVBoxLayout(central)
-        main_layout.setSpacing(8)
+        main_layout.setSpacing(10)
         main_layout.setContentsMargins(12, 8, 12, 8)
 
-        # ---- 标题栏 ----
-        title_row = QHBoxLayout()
+        # ==================== 标题栏 ====================
+        title_frame = QFrame()
+        title_frame.setObjectName("status_card")
+        title_layout = QHBoxLayout(title_frame)
+        title_layout.setContentsMargins(16, 12, 16, 12)
 
         title_label = QLabel("🏠 智能门禁访客管理系统")
         title_label.setObjectName("title_label")
         title_label.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
         title_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        title_row.addWidget(title_label)
+        title_layout.addWidget(title_label)
 
-        title_row.addStretch()
+        title_layout.addStretch()
 
         # 连接状态指示
         mode_text = "● 智云连接中" if config.USE_REAL_CLOUD else "● 模拟模式"
@@ -118,34 +124,33 @@ class MainWindow(QMainWindow):
         self._conn_label.setStyleSheet(
             "color: #F39C12; font-size: 13px; font-weight: bold; background: transparent;"
         )
-        title_row.addWidget(self._conn_label)
+        title_layout.addWidget(self._conn_label)
+
+        # 分隔
+        sep = QLabel("  |  ")
+        sep.setStyleSheet("color: #34425A; background: transparent;")
+        title_layout.addWidget(sep)
 
         # 当前时间
         self._time_label = QLabel("")
         self._time_label.setStyleSheet(
-            "color: #808090; font-size: 12px; background: transparent;"
+            "color: #95A3B8; font-size: 13px; background: transparent;"
         )
-        title_row.addWidget(self._time_label)
+        title_layout.addWidget(self._time_label)
 
-        main_layout.addLayout(title_row)
+        main_layout.addWidget(title_frame)
 
-        # ---- 上半区：状态看板 + 远程控制 ----
+        # ==================== 门禁状态看板 (全宽) ====================
+        self._door_panel = DoorStatusPanel()
+        main_layout.addWidget(self._door_panel, stretch=2)
+
+        # ==================== 上半区：环境信息 + 远程控制 ====================
         top_splitter = QSplitter(Qt.Horizontal)
         top_splitter.setChildrenCollapsible(False)
 
-        # 左侧：门禁看板 + 环境面板（纵向堆叠）
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(8)
-
-        self._door_panel = DoorStatusPanel()
-        left_layout.addWidget(self._door_panel, stretch=1)
-
+        # 左侧：环境面板（含实时曲线图）
         self._env_panel = EnvInfoPanel()
-        left_layout.addWidget(self._env_panel, stretch=1)
-
-        top_splitter.addWidget(left_widget)
+        top_splitter.addWidget(self._env_panel)
 
         # 右侧：远程控制 + 运行诊断
         right_widget = QWidget()
@@ -154,33 +159,33 @@ class MainWindow(QMainWindow):
         right_layout.setSpacing(8)
 
         self._control_panel = RemoteControlPanel()
-        right_layout.addWidget(self._control_panel, stretch=1)
+        right_layout.addWidget(self._control_panel, stretch=3)
 
         self._system_panel = SystemStatusPanel()
-        right_layout.addWidget(self._system_panel, stretch=1)
+        right_layout.addWidget(self._system_panel, stretch=2)
 
         top_splitter.addWidget(right_widget)
 
-        top_splitter.setSizes([700, 500])
+        top_splitter.setSizes([650, 550])
         main_layout.addWidget(top_splitter, stretch=3)
 
-        # ---- 中间区：事件时间线 ----
+        # ==================== 中间区：事件时间线 ====================
         self._timeline_panel = EventTimelinePanel()
         main_layout.addWidget(self._timeline_panel, stretch=2)
 
-        # ---- 下半区：统计图表 ----
+        # ==================== 下半区：统计图表 ====================
         self._stats_panel = StatsPanel()
         self._stats_panel.set_database(self._db)
         self._stats_panel.export_requested.connect(self._on_export_requested)
         main_layout.addWidget(self._stats_panel, stretch=1)
 
-        # ---- 状态栏 ----
+        # ==================== 状态栏 ====================
         status_bar = QStatusBar()
         self.setStatusBar(status_bar)
-        self._status_msg = QLabel("系统就绪 | E同学：Python应用层")
+        self._status_msg = QLabel("系统就绪 | E同学：Python应用层 v2.0")
         status_bar.addWidget(self._status_msg)
 
-        # ---- 时钟定时器 ----
+        # ==================== 时钟定时器 ====================
         self._clock_timer = QTimer(self)
         self._clock_timer.timeout.connect(self._update_clock)
         self._clock_timer.start(1000)
@@ -215,8 +220,8 @@ class MainWindow(QMainWindow):
 
         流程：
             1. 更新内存中的 SensorState
-            2. 刷新门禁看板
-            3. 刷新环境面板
+            2. 刷新门禁看板（含sensor-c扩展字段）
+            3. 刷新环境面板（含实时曲线图）
             4. 生成事件记录（事件时间线）
             5. 存储到数据库
         """
@@ -265,6 +270,12 @@ class MainWindow(QMainWindow):
             self._sensor_state.stay = int(data[config.FIELD_STAY])
         if config.FIELD_NIGHT in data:
             self._sensor_state.night = int(data[config.FIELD_NIGHT])
+        if config.FIELD_FLAME in data:
+            self._sensor_state.flame = int(data[config.FIELD_FLAME])
+        if config.FIELD_GAS in data:
+            self._sensor_state.gas = int(data[config.FIELD_GAS])
+        if config.FIELD_GRATING in data:
+            self._sensor_state.grating = int(data[config.FIELD_GRATING])
         if config.FIELD_UNLOCK in data:
             self._sensor_state.unlock = int(data[config.FIELD_UNLOCK])
         if config.FIELD_BUZZ in data:
@@ -344,6 +355,46 @@ class MainWindow(QMainWindow):
                     alert=alert
                 )
 
+            # ---- 新增：sensor-c 事件处理 ----
+            # 火焰检测事件
+            if config.FIELD_FLAME in data:
+                flame = int(data.get(config.FIELD_FLAME, 0))
+                last_flame = self._last_db_values.get(config.FIELD_FLAME)
+                self._last_db_values[config.FIELD_FLAME] = flame
+                if flame == 1 and last_flame != 1:
+                    self._insert_event_if_new(
+                        sensor="flame",
+                        event_type=config.EVENT_FLAME_DETECT,
+                        value=1,
+                        alert=config.ALERT_ALARM
+                    )
+
+            # 可燃气体超标事件
+            if config.FIELD_GAS in data:
+                gas = int(data.get(config.FIELD_GAS, 0))
+                last_gas = self._last_db_values.get(config.FIELD_GAS)
+                self._last_db_values[config.FIELD_GAS] = gas
+                if gas == 1 and last_gas != 1:
+                    self._insert_event_if_new(
+                        sensor="gas",
+                        event_type=config.EVENT_GAS_ALARM,
+                        value=1,
+                        alert=config.ALERT_ALARM
+                    )
+
+            # 红外光栅遮断事件
+            if config.FIELD_GRATING in data:
+                grating = int(data.get(config.FIELD_GRATING, 0))
+                last_grating = self._last_db_values.get(config.FIELD_GRATING)
+                self._last_db_values[config.FIELD_GRATING] = grating
+                if grating == 1 and last_grating != 1:
+                    self._insert_event_if_new(
+                        sensor="grating",
+                        event_type=config.EVENT_GRATING_BREAK,
+                        value=1,
+                        alert=config.ALERT_ATTENTION
+                    )
+
         except Exception as e:
             logger.warning("数据库写入失败: %s", e)
 
@@ -404,6 +455,26 @@ class MainWindow(QMainWindow):
                 config.EVENT_ALERT_RESET,
                 sensor="remote",
                 detail="用户解除告警",
+                alert=0
+            )
+
+        # 记录语音播报事件
+        if "V1" in send_cmd:
+            self._timeline_panel.add_event(
+                config.EVENT_VOICE_PLAY,
+                sensor="remote",
+                detail="语音播报",
+                alert=0
+            )
+
+        # 记录布防模式变更事件
+        if "arm" in send_cmd:
+            arm_val = send_cmd["arm"]
+            detail = "布防" if arm_val else "撤防"
+            self._timeline_panel.add_event(
+                config.EVENT_ARM_CHANGE,
+                sensor="remote",
+                detail=f"用户{detail}",
                 alert=0
             )
 

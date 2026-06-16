@@ -71,12 +71,18 @@ FIELD_LUX = "lux"                       # 光照 int
 FIELD_ALERT = "alert"                   # 告警等级 0/1/2
 FIELD_STAY = "stay"                     # 停留时间 int(秒)
 FIELD_NIGHT = "night"                   # 夜间模式 0/1
+FIELD_FLAME = "flame"                   # 火焰检测 0/1 (sensor-c)
+FIELD_GAS = "gas"                       # 可燃气体 0/1 (sensor-c)
+FIELD_GRATING = "grating"               # 红外光栅 0/1 (sensor-c)
+FIELD_TOUCH = "touch"                   # 触摸按键 0/1 (sensor-c Mode2)
 
 # 下行字段（Python -> 智云 -> 硬件）
 FIELD_UNLOCK = "unlock"                 # 远程开门 0/1
 FIELD_BUZZ = "buzz"                     # 蜂鸣器 0/1/500
 FIELD_RGB = "rgb"                       # RGB [R,G,B]
 FIELD_RESET = "reset"                   # 告警解除 0/1
+FIELD_ARM = "arm"                       # 布防模式 0/1/2 (sensor-c)
+FIELD_VOICE = "V1"                      # 语音播报 (sensor-c, hex数据)
 
 # ======================== 告警等级定义 ========================
 ALERT_SAFE = 0                          # 安全（绿色）
@@ -92,6 +98,11 @@ EVENT_LOITER = "loiter"                 # 有人徘徊
 EVENT_INTRUSION = "intrusion"           # 夜间入侵
 EVENT_REMOTE_UNLOCK = "remote_unlock"   # 远程开门
 EVENT_ALERT_RESET = "alert_reset"       # 告警解除
+EVENT_FLAME_DETECT = "flame_detect"     # 火焰检测 (sensor-c)
+EVENT_GAS_ALARM = "gas_alarm"           # 可燃气体超标 (sensor-c)
+EVENT_GRATING_BREAK = "grating_break"   # 红外光栅遮断 (sensor-c)
+EVENT_VOICE_PLAY = "voice_play"         # 语音播报 (sensor-c)
+EVENT_ARM_CHANGE = "arm_change"         # 布防模式变更 (sensor-c)
 
 # ======================== ZXBee 协议常量 ========================
 ZXBEE_SOF = 0xAA

@@ -60,6 +60,7 @@ class SensorState:
     实时传感器状态（内存中维护，用于UI刷新）
 
     汇聚 sensor-a / sensor-b / sensor-c 所有上行字段
+    v2.0: 新增 flame, gas, grating 字段
     """
     # sensor-a 环境数据
     temp: float = 0.0
@@ -73,6 +74,11 @@ class SensorState:
     alert: int = 0
     stay: int = 0
     night: int = 0
+
+    # sensor-c 扩展安防数据（v2.0新增）
+    flame: int = 0       # 火焰检测 0/1
+    gas: int = 0         # 可燃气体 0/1
+    grating: int = 0     # 红外光栅 0/1
 
     # sensor-b 控制状态
     unlock: int = 0

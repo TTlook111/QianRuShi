@@ -1,6 +1,7 @@
 /* ============================================================
    智能门禁访客管理系统 — PyQt5 样式表
    E同学：Python应用层
+   v2.0 增强版：更丰富的交互反馈、缺失功能组件样式
    ============================================================ */
 
 /* ---- 全局字体与背景 ---- */
@@ -81,6 +82,10 @@ QPushButton#btn_alarm:hover {
     background-color: #EB4A4A;
 }
 
+QPushButton#btn_alarm:pressed {
+    background-color: #B82E2E;
+}
+
 /* 成功按钮 */
 QPushButton#btn_unlock, QPushButton#btn_reset {
     background-color: #2ECC71;
@@ -90,6 +95,10 @@ QPushButton#btn_unlock:hover, QPushButton#btn_reset:hover {
     background-color: #3EDC81;
 }
 
+QPushButton#btn_unlock:pressed, QPushButton#btn_reset:pressed {
+    background-color: #27AE60;
+}
+
 /* 门铃按钮 */
 QPushButton#btn_doorbell {
     background-color: #3498DB;
@@ -97,6 +106,36 @@ QPushButton#btn_doorbell {
 
 QPushButton#btn_doorbell:hover {
     background-color: #44A8EB;
+}
+
+QPushButton#btn_doorbell:pressed {
+    background-color: #2980B9;
+}
+
+/* 夜间模式按钮 */
+QPushButton#btn_night {
+    background-color: #8E44AD;
+}
+
+QPushButton#btn_night:hover {
+    background-color: #9B59B6;
+}
+
+QPushButton#btn_night:pressed {
+    background-color: #7D3C98;
+}
+
+/* 语音播报按钮 */
+QPushButton#btn_voice {
+    background-color: #E67E22;
+}
+
+QPushButton#btn_voice:hover {
+    background-color: #F39C12;
+}
+
+QPushButton#btn_voice:pressed {
+    background-color: #D35400;
 }
 
 /* ---- 标签 ---- */
@@ -209,6 +248,30 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QScrollBar:horizontal {
+    background: #151922;
+    height: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #3A4658;
+    border-radius: 5px;
+    min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #4A5A70;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
 /* ---- 状态栏 ---- */
 QStatusBar {
     background-color: #101620;
@@ -229,4 +292,214 @@ QToolTip {
     border: 1px solid #2F6FDB;
     border-radius: 4px;
     padding: 4px 8px;
+}
+
+/* ---- 输入框 ---- */
+QLineEdit, QSpinBox, QDoubleSpinBox {
+    background-color: #171F2D;
+    color: #E8ECF3;
+    border: 1px solid #34425A;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: #2F6FDB;
+}
+
+QComboBox {
+    background-color: #171F2D;
+    color: #E8ECF3;
+    border: 1px solid #34425A;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #202738;
+    color: #E8ECF3;
+    border: 1px solid #34425A;
+    selection-background-color: #2F6FDB;
+}
+
+/* ---- 进度条 ---- */
+QProgressBar {
+    background-color: #171F2D;
+    border: 1px solid #34425A;
+    border-radius: 4px;
+    text-align: center;
+    color: #E8ECF3;
+    font-size: 11px;
+}
+
+QProgressBar::chunk {
+    background-color: #2F6FDB;
+    border-radius: 3px;
+}
+
+/* ---- 选项卡 ---- */
+QTabWidget::pane {
+    background-color: #202738;
+    border: 1px solid #34425A;
+    border-radius: 6px;
+}
+
+QTabBar::tab {
+    background-color: #171F2D;
+    color: #95A3B8;
+    border: 1px solid #34425A;
+    padding: 8px 16px;
+    font-size: 12px;
+}
+
+QTabBar::tab:selected {
+    background-color: #202738;
+    color: #2F6FDB;
+    border-bottom: 2px solid #2F6FDB;
+}
+
+QTabBar::tab:hover {
+    background-color: #202738;
+    color: #E8ECF3;
+}
+
+/* ---- 文本编辑器 ---- */
+QTextEdit, QPlainTextEdit {
+    background-color: #171F2D;
+    color: #E8ECF3;
+    border: 1px solid #34425A;
+    border-radius: 4px;
+    padding: 6px;
+    font-family: "Consolas", "Microsoft YaHei", monospace;
+    font-size: 12px;
+}
+
+/* ---- 对话框 ---- */
+QDialog {
+    background-color: #151922;
+}
+
+QMessageBox {
+    background-color: #202738;
+}
+
+QMessageBox QLabel {
+    color: #E8ECF3;
+}
+
+QMessageBox QPushButton {
+    min-width: 80px;
+}
+
+/* ---- 滑块 ---- */
+QSlider::groove:horizontal {
+    height: 4px;
+    background-color: #34425A;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    background-color: #2F6FDB;
+    border: 2px solid #3D7FE8;
+    border-radius: 8px;
+    margin: -6px 0;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: #3D7FE8;
+}
+
+QSlider::sub-page:horizontal {
+    background-color: #2F6FDB;
+    border-radius: 2px;
+}
+
+/* ---- 复选框 ---- */
+QCheckBox {
+    color: #C9D3E2;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #34425A;
+    border-radius: 3px;
+    background-color: #171F2D;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #2F6FDB;
+    border-color: #3D7FE8;
+}
+
+/* ============================================================
+   新增：实时曲线图区域样式
+   ============================================================ */
+QFrame#chart_frame {
+    background-color: #171F2D;
+    border: 1px solid #34425A;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+/* ============================================================
+   新增：传感器扩展面板样式 (flame, gas, grating, stay, night)
+   ============================================================ */
+QFrame#sensor_ext_card {
+    background-color: #171F2D;
+    border: 1px solid #34425A;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QFrame#sensor_ext_card[alert="true"] {
+    border-color: #DB3A3A;
+    background-color: #2A1A1A;
+}
+
+/* ---- 安防面板专用 ---- */
+QLabel#alert_safe {
+    color: #2ECC71;
+    font-weight: bold;
+}
+
+QLabel#alert_warning {
+    color: #F39C12;
+    font-weight: bold;
+}
+
+QLabel#alert_alarm {
+    color: #DB3A3A;
+    font-weight: bold;
+}
+
+/* ---- 语音播报面板 ---- */
+QFrame#voice_panel {
+    background-color: #171F2D;
+    border: 1px solid #E67E22;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+/* ---- 布防模式指示 ---- */
+QLabel#arm_disarmed {
+    color: #95A3B8;
+}
+
+QLabel#arm_armed {
+    color: #2ECC71;
+    font-weight: bold;
+}
+
+QLabel#arm_night {
+    color: #8E44AD;
+    font-weight: bold;
 }
