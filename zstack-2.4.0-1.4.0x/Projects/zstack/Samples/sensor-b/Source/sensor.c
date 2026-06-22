@@ -150,7 +150,7 @@ static void buzzerShort(uint16 ms)
 
 /*********************************************************************************************
 * 名称：relayUnlock()
-* 功能：远程开门（继电器打开 + 自动3秒后关闭）
+* 功能：远程开门（继电器打开，保持开门）
 * 参数：无
 * 返回：无
 * 修改：
@@ -160,8 +160,7 @@ static void relayUnlock(void)
 {
   unlock_state = 1;                                             // 标记为解锁状态
   RELAY1 = ON;                                                  // 继电器1打开（模拟开锁）
-  relay_auto_flag = 1;                                          // 标记需要自动关闭
-  osal_start_timerEx(sapi_TaskID, MY_RELAY_EVT, 3000);          // 3秒后自动关闭
+  relay_auto_flag = 0;                                          // 不自动关门，由上位机手动关门
 }
 
 /*********************************************************************************************
@@ -414,9 +413,9 @@ void sensorControl(uint8 cmd)
     LED2 = OFF;
   }
 
-  /* 继电器控制 - 修复: 使用relayUnlock()确保3秒安全定时器 */
+  /* 继电器控制 - unlock=1保持开门，unlock=0手动关门 */
   if (cmd & 0x40) {
-    relayUnlock();                                               // 包含自动关闭定时器
+    relayUnlock();                                               // 保持开门
   } else {
     relayLock();
   }
@@ -486,7 +485,7 @@ int ZXBeeUserProcess(char *ptag, char *pval)
   /* ========== 远程开门 ========== */
   if (0 == strcmp("unlock", ptag)) {
     if (val) {
-      relayUnlock();                                             // 开门 + 3秒自动关门
+      relayUnlock();                                             // 开门，保持开门
       buzzerOff();                                               // 修复: 关闭告警蜂鸣器
       alert_level = ALERT_SAFE;                                  // 开门后恢复正常
       rgbSet(0, 255, 0);                                         // 绿灯表示开门成功
@@ -680,10 +679,10 @@ void MyEventProcess(uint16 event)
     }
   }
 
-  /* ========== 继电器自动关闭事件（开门3秒后） ========== */
+  /* ========== 继电器兜底关闭事件（开门不再启动该定时器） ========== */
   if (event & MY_RELAY_EVT) {
     if (relay_auto_flag) {
-      relayLock();                                               // 自动关门
+      relayLock();                                               // 兜底关门
       /* 开门结束后，安全模式下恢复绿灯 */
       if (alert_level == ALERT_SAFE) {
         rgbSet(0, 255, 0);                                       // 恢复绿灯

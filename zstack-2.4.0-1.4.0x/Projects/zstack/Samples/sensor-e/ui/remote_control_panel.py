@@ -66,7 +66,7 @@ class RemoteControlPanel(QGroupBox):
             "🔓 远程开门",
             "sensor-b (控制执行节点 602)",
             '{"unlock": 1, "rgb": [0, 255, 0]}',
-            "继电器打开 → 门锁开启<br>RGB灯变绿色<br>3秒后自动关门（安全机制）",
+            "继电器打开 → 门锁保持开启<br>RGB灯变绿色<br>需要点击“手动关门”才会关闭",
             "开门同时会记录到数据库，事件时间线会显示"
         ))
         btn_unlock.clicked.connect(self._on_unlock)
@@ -78,7 +78,7 @@ class RemoteControlPanel(QGroupBox):
             "sensor-b (控制执行节点 602)",
             '{"unlock": 0}',
             "继电器关闭 → 门锁锁定",
-            "提前结束3秒自动关门等待"
+            "发送 unlock=0，立即关闭门锁继电器"
         ))
         btn_lock.clicked.connect(self._on_lock)
         lock_row.addWidget(btn_lock)

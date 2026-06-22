@@ -63,7 +63,10 @@ class MainWindow(QMainWindow):
         self._sensor_state = SensorState()
         self._last_db_values = {}
         self._loiter_db_reported = False
-        self._last_linked_alert = None
+        self._last_linked_alert = config.ALERT_SAFE
+        self._last_linked_pir_alarm = 0
+        self._last_linked_tch = 0
+        self._last_linked_pir_doorbell = 0
 
         # 初始化通信层
         if config.USE_REAL_CLOUD:
@@ -238,7 +241,9 @@ class MainWindow(QMainWindow):
         # 4. 事件时间线处理
         self._timeline_panel.process_sensor_data(data)
 
-        # 5. 安防告警联动：sensor-c 只负责检测，蜂鸣器/RGB 在 sensor-b 上执行
+        # 5. 门铃/安防联动：sensor-c 负责检测，蜂鸣器/RGB 在 sensor-b 上执行
+        self._sync_doorbell_to_sensor_b(data)
+        self._sync_night_pir_alarm_to_sensor_b(data)
         self._sync_alert_to_sensor_b(data)
 
         # 6. 数据库存储
@@ -260,6 +265,9 @@ class MainWindow(QMainWindow):
             return
 
         alert = int(data.get(config.FIELD_ALERT, config.ALERT_SAFE))
+        if self._sensor_state.night and self._sensor_state.pir and alert < config.ALERT_ALARM:
+            return
+
         if alert == self._last_linked_alert:
             return
 
@@ -268,6 +276,44 @@ class MainWindow(QMainWindow):
         self._cloud_api.send_to_sensor_b(cmd)
         self._system_panel.append_command("sensor-b", cmd)
         logger.info("联动告警到 sensor-b: %s", cmd)
+
+    def _sync_night_pir_alarm_to_sensor_b(self, data: dict):
+        """夜间模式下有人靠近，立即触发 sensor-b 报警响铃。"""
+        if config.FIELD_PIR not in data and config.FIELD_NIGHT not in data:
+            return
+
+        pir = int(data.get(config.FIELD_PIR, self._sensor_state.pir))
+        night = int(data.get(config.FIELD_NIGHT, self._sensor_state.night))
+        should_alarm = 1 if (night and pir) else 0
+
+        if should_alarm == self._last_linked_pir_alarm:
+            return
+
+        self._last_linked_pir_alarm = should_alarm
+        cmd = {"alert": config.ALERT_ALARM if should_alarm else config.ALERT_SAFE}
+        self._last_linked_alert = cmd["alert"]
+        self._cloud_api.send_to_sensor_b(cmd)
+        self._system_panel.append_command("sensor-b", cmd)
+        logger.info("夜间靠近联动到 sensor-b: %s", cmd)
+
+    def _sync_doorbell_to_sensor_b(self, data: dict):
+        """把 sensor-c 的 touch/门铃事件联动到 sensor-b 蜂鸣器和蓝灯。"""
+        if config.FIELD_TCH not in data and config.FIELD_PIR not in data:
+            return
+
+        tch = int(data.get(config.FIELD_TCH, self._sensor_state.tch))
+        pir = int(data.get(config.FIELD_PIR, self._sensor_state.pir))
+        night = int(data.get(config.FIELD_NIGHT, self._sensor_state.night))
+        doorbell_by_tch = tch == 1 and self._last_linked_tch != 1
+        doorbell_by_touch_pir = (not night) and pir == 1 and self._last_linked_pir_doorbell != 1
+
+        if doorbell_by_tch or doorbell_by_touch_pir:
+            cmd = {"buzz": 500, "rgb": [0, 0, 255]}
+            self._cloud_api.send_to_sensor_b(cmd)
+            self._system_panel.append_command("sensor-b", cmd)
+            logger.info("联动门铃到 sensor-b: %s", cmd)
+        self._last_linked_tch = tch
+        self._last_linked_pir_doorbell = pir if not night else 0
 
     def _update_sensor_state(self, data: dict):
         """更新内存中的传感器状态"""
@@ -481,26 +527,6 @@ class MainWindow(QMainWindow):
                 config.EVENT_ALERT_RESET,
                 sensor="remote",
                 detail="用户解除告警",
-                alert=0
-            )
-
-        # 记录语音播报事件
-        if "V1" in send_cmd:
-            self._timeline_panel.add_event(
-                config.EVENT_VOICE_PLAY,
-                sensor="remote",
-                detail="语音播报",
-                alert=0
-            )
-
-        # 记录布防模式变更事件
-        if "arm" in send_cmd:
-            arm_val = send_cmd["arm"]
-            detail = "布防" if arm_val else "撤防"
-            self._timeline_panel.add_event(
-                config.EVENT_ARM_CHANGE,
-                sensor="remote",
-                detail=f"用户{detail}",
                 alert=0
             )
 
