@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
         self._sensor_state = SensorState()
         self._last_db_values = {}
         self._loiter_db_reported = False
+        self._last_linked_alert = None
 
         # 初始化通信层
         if config.USE_REAL_CLOUD:
@@ -237,7 +238,10 @@ class MainWindow(QMainWindow):
         # 4. 事件时间线处理
         self._timeline_panel.process_sensor_data(data)
 
-        # 5. 数据库存储
+        # 5. 安防告警联动：sensor-c 只负责检测，蜂鸣器/RGB 在 sensor-b 上执行
+        self._sync_alert_to_sensor_b(data)
+
+        # 6. 数据库存储
         self._save_to_db(data)
         self._system_panel.append_data(data)
         self._refresh_database_counts()
@@ -249,6 +253,21 @@ class MainWindow(QMainWindow):
             f"humi={self._sensor_state.humi}% "
             f"alert={self._sensor_state.alert}"
         )
+
+    def _sync_alert_to_sensor_b(self, data: dict):
+        """把 sensor-c 的告警等级联动到 sensor-b 声光告警执行节点。"""
+        if config.FIELD_ALERT not in data:
+            return
+
+        alert = int(data.get(config.FIELD_ALERT, config.ALERT_SAFE))
+        if alert == self._last_linked_alert:
+            return
+
+        self._last_linked_alert = alert
+        cmd = {"alert": alert}
+        self._cloud_api.send_to_sensor_b(cmd)
+        self._system_panel.append_command("sensor-b", cmd)
+        logger.info("联动告警到 sensor-b: %s", cmd)
 
     def _update_sensor_state(self, data: dict):
         """更新内存中的传感器状态"""
@@ -431,6 +450,13 @@ class MainWindow(QMainWindow):
 
         logger.info("发送命令到 %s: %s", target, send_cmd)
         self._system_panel.append_command(target, send_cmd)
+
+        # 本地先做一次乐观刷新，避免演示时等待节点回报造成“按钮没反应”的错觉。
+        if target == "sensor-b" and "unlock" in send_cmd:
+            unlock = int(send_cmd["unlock"])
+            self._sensor_state.unlock = unlock
+            self._sensor_state.door = unlock
+            self._door_panel.update_data({config.FIELD_DOOR: unlock})
 
         # 记录远程开门事件
         if send_cmd.get("unlock") == 1:

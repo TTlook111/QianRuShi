@@ -176,6 +176,7 @@ static void relayLock(void)
 {
   unlock_state = 0;                                             // 标记为锁定状态
   RELAY1 = OFF;                                                 // 继电器1关闭
+  RELAY2 = OFF;                                                 // 同步关闭备用继电器，避免演示时保持吸合
   relay_auto_flag = 0;                                          // 清除自动关闭标志
 }
 
@@ -229,6 +230,7 @@ void sensorInit(void)
   beep_init();                                                   // 蜂鸣器初始化（内部配置P0_3）
   led_init();                                                    // LED灯初始化
   relay_init();                                                  // 继电器初始化
+  relayLock();                                                   // 上电默认关门，避免继电器初始态不确定
 
   /* 初始状态：绿灯亮表示系统正常 */
   rgbSet(0, 255, 0);                                             // RGB绿灯

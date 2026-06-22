@@ -189,7 +189,7 @@ class DoorStatusPanel(QGroupBox):
         self._flame_indicator = StatusIndicator("🔥 火焰检测")
         self._gas_indicator = StatusIndicator("☁️ 可燃气体")
         self._grating_indicator = StatusIndicator("📡 红外光栅")
-        self._stay_card = EnvValueCard("⏱️ 停留时间", "秒")
+        self._stay_card = EnvValueCard("⏱️ 靠近时长", "秒")
         self._night_indicator = StatusIndicator("🌙 夜间模式")
 
         bottom_grid.addWidget(self._flame_indicator, 0, 0)
@@ -278,9 +278,12 @@ class DoorStatusPanel(QGroupBox):
             else:
                 self._grating_indicator.set_active(False, "正常")
 
-        # ---- STAY 停留时间 ----
-        if config.FIELD_STAY in data:
-            stay = int(data[config.FIELD_STAY])
+        # ---- STAY 靠近时长：PIR 连续检测到人的累计秒数 ----
+        if config.FIELD_STAY in data or config.FIELD_PIR in data:
+            pir = int(data.get(config.FIELD_PIR, 1))
+            stay = int(data.get(config.FIELD_STAY, 0))
+            if pir == 0:
+                stay = 0
             color = "#E74C3C" if stay > 10 else "#E8ECF3"
             self._stay_card.set_value(stay, color)
 

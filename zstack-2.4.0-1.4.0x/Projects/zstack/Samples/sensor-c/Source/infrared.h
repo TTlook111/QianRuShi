@@ -27,9 +27,10 @@
 #define PIR_GPIO_BIT            P0_0                 /* 直接位操作 */
 
 /* PIR 触发配置 */
-#define PIR_TRIGGER_LEVEL       1                    /* 高电平 = 有人 */
-#define PIR_IDLE_LEVEL          0                    /* 低电平 = 无人 */
-#define PIR_INT_EDGE            GPIO_INT_RISING_EDGE  /* 上升沿触发 (有人靠近时) */
+#define PIR_ACTIVE_HIGH         1                    /* 1: 高电平=有人；0: 低电平=有人 */
+#define PIR_TRIGGER_LEVEL       (PIR_ACTIVE_HIGH ? 1 : 0)
+#define PIR_IDLE_LEVEL          (PIR_ACTIVE_HIGH ? 0 : 1)
+#define PIR_INT_EDGE            (PIR_ACTIVE_HIGH ? GPIO_INT_RISING_EDGE : GPIO_INT_FALLING_EDGE)
 
 /* PIR 抗抖动参数 */
 #define PIR_DEBOUNCE_MS         200                  /* 硬件去抖时间 (ms) */

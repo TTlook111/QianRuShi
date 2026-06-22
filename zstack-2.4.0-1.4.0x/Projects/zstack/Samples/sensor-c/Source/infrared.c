@@ -122,7 +122,7 @@ void infrared_init(void)
 *********************************************************************************************/
 unsigned char get_infrared_status(void)
 {
-    if (P0_0)              /* PIR 传感器输出高电平 */
+    if (PIR_GPIO_BIT == PIR_TRIGGER_LEVEL)
         return 1;          /* 检测到信号返回 1 */
     else
         return 0;          /* 没有检测到信号返回 0 */
