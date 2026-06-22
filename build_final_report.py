@@ -303,7 +303,7 @@ def build_doc():
     add_picture(doc, arch, 6.2)
     add_caption(doc, "图2-1 系统三层架构图")
     add_heading(doc, "2.2  方案框图", 2)
-    add_para(doc, "系统由四类核心节点组成：协调器负责网络管理和串口/云端桥接；sensor-a 负责环境数据采集；sensor-b 负责门锁、蜂鸣器和 RGB 灯等执行器控制；sensor-c 负责门禁安防检测。各节点通过统一字段和统一 ZXBee 帧协议完成上行状态上报与下行命令执行。")
+    add_para(doc, "系统由四类核心节点组成：协调器负责网络管理和串口/云端桥接；sensor-a 负责环境数据采集；sensor-b 负责门锁、蜂鸣器和 RGB 灯等执行器控制；sensor-c 负责门禁安防检测。各节点通过统一字段和统一 ZXBee 帧协议按职责完成上行状态上报与下行控制执行。")
     add_table(doc, ["模块", "主要组成", "作用"], [
         ["感知采集", "sensor-a、sensor-c", "采集温湿光照、人体红外、门磁、门铃和扩展安防状态"],
         ["控制执行", "sensor-b", "执行远程开门、蜂鸣器、RGB 灯和告警复位"],
@@ -356,9 +356,9 @@ def build_doc():
     add_heading(doc, "4.3  智云物联网平台配置", 2)
     add_para(doc, "上位机配置文件 config.py 中保存智云平台主机、应用 ID、密钥、WebSocket 地址和节点 MAC 映射。实际运行时，WebSocketClient 先向智云平台发送 authenticate 请求，认证成功后接收 sensor/message 数据包，并按节点 MAC 将旧字段 A0/A1/A2 映射为 temp/humi/lux 或 pir/tch/door 等项目字段。")
     add_heading(doc, "4.4  Python数据采集与解析", 2)
-    add_para(doc, "Python 应用层对智云数据进行统一解析：优先解析 JSON 格式，同时兼容 {key=value} 和数组字段格式。解析后的数据更新 SensorState 内存状态，驱动门禁看板、环境曲线、事件时间线和数据库写入。远程控制命令由 PyQt 按钮触发，转换为 {unlock=1}、{buzz=500}、{rgb=[0,255,0]}、{reset=1} 等字段下发。")
+    add_para(doc, "Python 应用层对智云数据进行统一解析：优先解析 JSON 格式，同时兼容 {key=value} 和数组字段格式。解析后的数据更新 SensorState 内存状态，驱动门禁看板、环境曲线、事件时间线和数据库写入。远程控制区只保留已闭环命令，由 PyQt 按钮触发后转换为 {unlock=1}、{buzz=500}、{rgb=[0,255,0]}、{reset=1}、{night=1/0} 等字段下发。")
     add_heading(doc, "4.5  PyQt5界面设计", 2)
-    add_para(doc, "PyQt5 上位机采用深色主题，主界面包括标题栏、门禁状态看板、环境信息面板、远程控制区、系统诊断区、访客事件时间线和统计图表。界面可实时显示访客状态、门状态、门铃状态、安全模式、火焰/气体/光栅状态、温湿度、光照和告警等级。")
+    add_para(doc, "PyQt5 上位机采用深色主题，主界面包括标题栏、门禁状态看板、环境信息面板、远程控制区、系统诊断区、访客事件时间线和统计图表。界面可实时显示访客状态、门状态、门铃状态、夜间模式、火焰/气体/光栅状态、温湿度、光照和告警等级；远程控制区仅展示已有模块实现的开门、关门、蜂鸣器、声光告警、告警复位和夜间/白天模式切换。")
     add_picture(doc, clean_ui, 6.2)
     add_caption(doc, "图4-1 PyQt5 智能门禁访客管理系统主界面")
     add_heading(doc, "4.6  MySQL数据库设计", 2)

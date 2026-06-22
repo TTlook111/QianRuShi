@@ -7,10 +7,9 @@ v2.1: 详细悬停提示（模块/命令/反应）+ 美化UI
 
 from PyQt5.QtWidgets import (
     QGroupBox, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QFrame, QLineEdit
+    QFrame
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont
 
 
 def make_tooltip(title, target, command, reaction, detail=""):
@@ -175,7 +174,7 @@ class RemoteControlPanel(QGroupBox):
         layout.addWidget(sensor_c_header)
 
         # ---- 夜间模式控制行 ----
-        night_label = QLabel("🌙 夜间/布防模式")
+        night_label = QLabel("🌙 夜间模式")
         night_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
         layout.addWidget(night_label)
 
@@ -206,115 +205,6 @@ class RemoteControlPanel(QGroupBox):
         night_row.addWidget(btn_night_off)
 
         layout.addLayout(night_row)
-
-        # ---- 布防控制行 ----
-        arm_label = QLabel("🛡️ 布防控制")
-        arm_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
-        layout.addWidget(arm_label)
-
-        arm_row = QHBoxLayout()
-        arm_row.setSpacing(12)
-
-        btn_arm = QPushButton("🛡️ 布防")
-        btn_arm.setToolTip(make_tooltip(
-            "🛡️ 布防",
-            "sensor-c (安防检测节点 603)",
-            '{"arm": 1}',
-            "启用安防检测<br>PIR/门磁/震动等传感器开始工作",
-            "布防后所有安防传感器进入工作状态"
-        ))
-        btn_arm.clicked.connect(self._on_arm)
-        arm_row.addWidget(btn_arm)
-
-        btn_disarm = QPushButton("🔓 撤防")
-        btn_disarm.setToolTip(make_tooltip(
-            "🔓 撤防",
-            "sensor-c (安防检测节点 603)",
-            '{"arm": 0}',
-            "关闭安防检测<br>降低传感器灵敏度",
-            "撤防后安防传感器进入低功耗状态"
-        ))
-        btn_disarm.clicked.connect(self._on_disarm)
-        arm_row.addWidget(btn_disarm)
-
-        layout.addLayout(arm_row)
-
-        # ---- 分隔线 ----
-        separator3 = QFrame()
-        separator3.setFrameShape(QFrame.HLine)
-        separator3.setObjectName("separator")
-        layout.addWidget(separator3)
-
-        # ---- 语音播报行 ----
-        voice_label = QLabel("🔊 语音播报 (SYN6288)")
-        voice_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
-        layout.addWidget(voice_label)
-
-        voice_row = QHBoxLayout()
-        voice_row.setSpacing(8)
-
-        self._voice_input = QLineEdit()
-        self._voice_input.setPlaceholderText("输入播报内容...")
-        self._voice_input.setToolTip(
-            "<b>语音播报输入框</b><br>"
-            "输入中文文本，点击播报按钮后<br>"
-            "通过 SYN6288 语音合成芯片播放"
-        )
-        voice_row.addWidget(self._voice_input)
-
-        btn_voice = QPushButton("🔊 播报")
-        btn_voice.setObjectName("btn_voice")
-        btn_voice.setToolTip(make_tooltip(
-            "🔊 语音播报",
-            "sensor-c (安防检测节点 603)",
-            '{"V1": "<hex编码>"}',
-            "SYN6288 语音芯片播放中文语音<br>波特率 9600，Unicode编码",
-            "将中文文本转换为Unicode hex后发送"
-        ))
-        btn_voice.clicked.connect(self._on_voice_play)
-        voice_row.addWidget(btn_voice)
-
-        layout.addLayout(voice_row)
-
-        # ---- 快捷语音按钮 ----
-        quick_voice_label = QLabel("⚡ 快捷语音")
-        quick_voice_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
-        layout.addWidget(quick_voice_label)
-
-        quick_voice_row = QHBoxLayout()
-        quick_voice_row.setSpacing(8)
-
-        quick_phrases = [
-            ("欢迎光临", "欢迎光临", "#2ECC71"),
-            ("请刷卡", "请刷卡", "#3498DB"),
-            ("门已开", "门已开", "#E67E22"),
-            ("注意安全", "注意安全", "#E74C3C"),
-        ]
-        for text, phrase, color in quick_phrases:
-            btn = QPushButton(text)
-            btn.setToolTip(
-                f"<b>快捷语音：{phrase}</b><br>"
-                f"<b>🎯 目标：</b>sensor-c SYN6288<br>"
-                f"<b>📤 命令：</b>{{\"V1\": \"{phrase}\"}}<br>"
-                f"<b>📥 反应：</b>语音播报 \"{phrase}\""
-            )
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color}22;
-                    color: {color};
-                    border: 1px solid {color};
-                    border-radius: 4px;
-                    padding: 6px 10px;
-                    font-size: 11px;
-                }}
-                QPushButton:hover {{
-                    background-color: {color}44;
-                }}
-            """)
-            btn.clicked.connect(lambda checked, p=phrase: self._on_quick_voice(p))
-            quick_voice_row.addWidget(btn)
-
-        layout.addLayout(quick_voice_row)
 
         # ---- 状态提示 ----
         layout.addStretch()
@@ -376,34 +266,6 @@ class RemoteControlPanel(QGroupBox):
         cmd = {"night": 0, "_target": "sensor-c"}
         self._set_status("☀️ 已切换白天模式 → sensor-c", "#F39C12")
         self.command_requested.emit(cmd)
-
-    def _on_arm(self):
-        """布防：arm=1"""
-        cmd = {"arm": 1, "_target": "sensor-c"}
-        self._set_status("🛡️ 已布防 → sensor-c", "#2ECC71")
-        self.command_requested.emit(cmd)
-
-    def _on_disarm(self):
-        """撤防：arm=0"""
-        cmd = {"arm": 0, "_target": "sensor-c"}
-        self._set_status("🔓 已撤防 → sensor-c", "#95A3B8")
-        self.command_requested.emit(cmd)
-
-    def _on_voice_play(self):
-        """语音播报：V1=<text>"""
-        text = self._voice_input.text().strip()
-        if not text:
-            self._set_status("⚠️ 请输入播报内容", "#F39C12")
-            return
-        hex_data = text.encode("unicode_escape").decode("ascii").replace("\\u", "")
-        cmd = {"V1": hex_data, "_target": "sensor-c"}
-        self._set_status(f"🔊 正在播报: {text} → sensor-c", "#E67E22")
-        self.command_requested.emit(cmd)
-
-    def _on_quick_voice(self, phrase):
-        """快捷语音播报"""
-        self._voice_input.setText(phrase)
-        self._on_voice_play()
 
     # ==================== 工具方法 ====================
 
