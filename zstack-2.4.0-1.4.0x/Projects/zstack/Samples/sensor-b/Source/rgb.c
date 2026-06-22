@@ -21,37 +21,37 @@
 *********************************************************************************************/
 void rgb_init(void)
 {
-  APCFG &= ~0x01;                                                //模拟 I/O 失能
-  P0SEL &= ~0x07;                                               //配置控制管脚（p0.4, p0.5）为通用IO模式
-  P0DIR |= 0x07;                                                //配置控制管脚（p0.4, p0.5）为输出模式
+  APCFG &= ~0x07;                                               //P0.0~P0.2模拟 I/O 失能
+  P0SEL &= ~0x07;                                               //配置P0.0~P0.2为通用IO模式
+  P0DIR |= 0x07;                                                //配置P0.0~P0.2为输出模式
   
-  RGB_R = OFF;                                                     //初始状态为关闭
-  RGB_G = OFF;                                                     //初始状态为关闭
-  RGB_B = OFF;                                                     //初始状态为关闭
+  RGB_R = RGB_OFF;                                                 //初始状态为关闭
+  RGB_G = RGB_OFF;                                                 //初始状态为关闭
+  RGB_B = RGB_OFF;                                                 //初始状态为关闭
 }
   
 /*********************************************************************************************
 * 名称：rgb_on()
 * 功能：rgb控制打开函数
-* 参数：rgb号，在rgb.h中宏定义为RGB_R，RGB_G，RGB_B
+* 参数：rgb号，在rgb.h中宏定义为RGB_CH_R，RGB_CH_G，RGB_CH_B
 * 返回：0，打开rgb成功，-1，参数错误
 * 修改：
-* 注释：参数只能填入RGB_R，RGB_G，RGB_B否则会返回-1
+* 注释：参数只能填入RGB_CH_R，RGB_CH_G，RGB_CH_B否则会返回-1
 *********************************************************************************************/
 signed char rgb_on(unsigned char rgb)
 {
-  if(rgb == RGB_R){                                                //如果要打开RGB_R
-    RGB_R = ON;
+  if(rgb == RGB_CH_R){                                             //如果要打开RGB_R
+    RGB_R = RGB_ON;
     return 0;
   }
     
-  if(rgb == RGB_G){                                                //如果要打开RGB_G
-    RGB_G = ON;
+  if(rgb == RGB_CH_G){                                             //如果要打开RGB_G
+    RGB_G = RGB_ON;
     return 0;
   }
   
-  if(rgb == RGB_B){                                                //如果要打开RGB_B
-    RGB_B = ON;
+  if(rgb == RGB_CH_B){                                             //如果要打开RGB_B
+    RGB_B = RGB_ON;
     return 0;
   }
    
@@ -61,25 +61,25 @@ signed char rgb_on(unsigned char rgb)
 /*********************************************************************************************
 * 名称：rgb_off()
 * 功能：rgb控制关闭函数
-* 参数：rgb号，在rgb.h中宏定义为RGB_R，RGB_G，RGB_B
+* 参数：rgb号，在rgb.h中宏定义为RGB_CH_R，RGB_CH_G，RGB_CH_B
 * 返回：0，关闭rgb成功，-1，参数错误
 * 修改：
-* 注释：参数只能填入RGB_R，RGB_G，RGB_B否则会返回-1
+* 注释：参数只能填入RGB_CH_R，RGB_CH_G，RGB_CH_B否则会返回-1
 *********************************************************************************************/
 signed char rgb_off(unsigned char rgb)
 {
-  if(rgb == RGB_R){                                                //如果要关闭RGB_R
-    RGB_R = OFF;
+  if(rgb == RGB_CH_R){                                             //如果要关闭RGB_R
+    RGB_R = RGB_OFF;
     return 0;
   }
     
-  if(rgb == RGB_G){                                                //如果要关闭RGB_G
-    RGB_G = OFF;
+  if(rgb == RGB_CH_G){                                             //如果要关闭RGB_G
+    RGB_G = RGB_OFF;
     return 0;
   }
 
-  if(rgb == RGB_B){                                                //如果要关闭RGB_B
-    RGB_B = OFF;
+  if(rgb == RGB_CH_B){                                             //如果要关闭RGB_B
+    RGB_B = RGB_OFF;
     return 0;
   }
   

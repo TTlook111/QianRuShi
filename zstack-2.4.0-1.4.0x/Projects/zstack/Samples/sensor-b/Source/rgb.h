@@ -24,8 +24,12 @@
 #define RGB_G                      P0_1                            //宏定义RGB_G灯控制引脚P0_1
 #define RGB_B                      P0_2                            //宏定义RGB_B灯控制引脚P0_2
 
-#define ON                      0                               //宏定义灯开状态控制为NO
-#define OFF                     1                               //宏定义关闭状态控制为OFF
+#define RGB_CH_R                  1                               //红色通道编号
+#define RGB_CH_G                  2                               //绿色通道编号
+#define RGB_CH_B                  3                               //蓝色通道编号
+
+#define RGB_ON                    1                               //RGB高电平点亮（共阴模块）
+#define RGB_OFF                   0                               //RGB低电平关闭；若为共阳模块需与RGB_ON对调
 
 /*********************************************************************************************
 * 函数声明

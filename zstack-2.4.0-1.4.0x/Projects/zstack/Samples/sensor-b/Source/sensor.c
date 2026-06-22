@@ -86,23 +86,23 @@ static void rgbSet(uint8 r, uint8 g, uint8 b)
 
   /* 控制红色通道 */
   if (r > 0) {
-    RGB_R = ON;
+    RGB_R = RGB_ON;
   } else {
-    RGB_R = OFF;
+    RGB_R = RGB_OFF;
   }
 
   /* 控制绿色通道 */
   if (g > 0) {
-    RGB_G = ON;
+    RGB_G = RGB_ON;
   } else {
-    RGB_G = OFF;
+    RGB_G = RGB_OFF;
   }
 
   /* 控制蓝色通道 */
   if (b > 0) {
-    RGB_B = ON;
+    RGB_B = RGB_ON;
   } else {
-    RGB_B = OFF;
+    RGB_B = RGB_OFF;
   }
 }
 
@@ -378,19 +378,19 @@ void sensorControl(uint8 cmd)
 
   /* RGB控制 - 同步rgb_r/g/b */
   if (cmd & 0x01) {
-    RGB_R = ON; rgb_r = 255;
+    RGB_R = RGB_ON; rgb_r = 255;
   } else {
-    RGB_R = OFF; rgb_r = 0;
+    RGB_R = RGB_OFF; rgb_r = 0;
   }
   if (cmd & 0x02) {
-    RGB_G = ON; rgb_g = 255;
+    RGB_G = RGB_ON; rgb_g = 255;
   } else {
-    RGB_G = OFF; rgb_g = 0;
+    RGB_G = RGB_OFF; rgb_g = 0;
   }
   if (cmd & 0x04) {
-    RGB_B = ON; rgb_b = 255;
+    RGB_B = RGB_ON; rgb_b = 255;
   } else {
-    RGB_B = OFF; rgb_b = 0;
+    RGB_B = RGB_OFF; rgb_b = 0;
   }
 
   /* 蜂鸣器控制 - 同步buzz_mode */
