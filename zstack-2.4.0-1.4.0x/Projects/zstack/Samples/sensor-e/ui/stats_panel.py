@@ -12,11 +12,33 @@ from PyQt5.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib
+from matplotlib import font_manager
 import matplotlib.patheffects as pe
 import numpy as np
 
 # 设置 matplotlib 中文字体
-matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "Arial"]
+def _setup_chinese_font():
+    """让 matplotlib 直接使用 Windows 中文字体，避免标题显示成方块。"""
+    candidates = [
+        r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\simhei.ttf",
+        r"C:\Windows\Fonts\simsun.ttc",
+    ]
+    for font_path in candidates:
+        try:
+            font_manager.fontManager.addfont(font_path)
+            font_prop = font_manager.FontProperties(fname=font_path)
+            font_name = font_prop.get_name()
+            matplotlib.rcParams["font.family"] = font_name
+            matplotlib.rcParams["font.sans-serif"] = [font_name, "Microsoft YaHei", "SimHei", "Arial"]
+            return font_prop
+        except Exception:
+            continue
+    matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "Arial"]
+    return None
+
+
+CHINESE_FONT = _setup_chinese_font()
 matplotlib.rcParams["axes.unicode_minus"] = False
 
 # 现代化配色方案
@@ -32,12 +54,12 @@ MODERN_COLORS = {
 }
 
 # 现代化图表背景色
-CHART_BG = "#171F2D"
-AXIS_BG = "#111722"
-GRID_COLOR = "#1E2A3A"
-TEXT_COLOR = "#E8ECF3"
-SUBTITLE_COLOR = "#95A3B8"
-ACCENT_COLOR = "#4F8EF7"
+CHART_BG = "#FFFFFF"
+AXIS_BG = "#FFFFFF"
+GRID_COLOR = "#E2E8F0"
+TEXT_COLOR = "#1F2937"
+SUBTITLE_COLOR = "#64748B"
+ACCENT_COLOR = "#2563EB"
 
 
 class StatsPanel(QGroupBox):
@@ -69,7 +91,7 @@ class StatsPanel(QGroupBox):
         header_row = QHBoxLayout()
         title = QLabel("📈 数据可视化")
         title.setStyleSheet(
-            "color: #E8ECF3; font-size: 14px; font-weight: bold; background: transparent;"
+            "color: #1F2937; font-size: 14px; font-weight: bold; background: transparent;"
         )
         header_row.addWidget(title)
         header_row.addStretch()
@@ -77,7 +99,7 @@ class StatsPanel(QGroupBox):
         # 当前图表类型标签
         self._chart_type_label = QLabel("📅 日统计")
         self._chart_type_label.setStyleSheet(
-            "color: #3498DB; font-size: 12px; background: #171F2D; "
+            "color: #2563EB; font-size: 12px; background: #EAF1FB; "
             "padding: 4px 12px; border-radius: 4px;"
         )
         header_row.addWidget(self._chart_type_label)
@@ -90,9 +112,9 @@ class StatsPanel(QGroupBox):
         # 按钮样式
         btn_style = """
             QPushButton {
-                background-color: #1E2A3A;
-                color: #C9D3E2;
-                border: 1px solid #2E3A4D;
+                background-color: #FFFFFF;
+                color: #334155;
+                border: 1px solid #CBD5E1;
                 border-radius: 6px;
                 padding: 8px 16px;
                 font-size: 12px;
@@ -100,13 +122,13 @@ class StatsPanel(QGroupBox):
                 min-width: 80px;
             }
             QPushButton:hover {
-                background-color: #2E3A4D;
-                border-color: #4F8EF7;
-                color: #FFFFFF;
+                background-color: #EAF1FB;
+                border-color: #2563EB;
+                color: #1F2937;
             }
             QPushButton:pressed {
-                background-color: #1E2A3A;
-                border-color: #4F8EF7;
+                background-color: #DBEAFE;
+                border-color: #2563EB;
             }
         """
 
@@ -155,9 +177,9 @@ class StatsPanel(QGroupBox):
         # 导出按钮样式
         export_btn_style = """
             QPushButton {
-                background-color: #2E3A4D;
-                color: #95A3B8;
-                border: 1px solid #3A4A5E;
+                background-color: #F8FAFC;
+                color: #64748B;
+                border: 1px solid #CBD5E1;
                 border-radius: 6px;
                 padding: 7px 14px;
                 font-size: 11px;
@@ -165,13 +187,13 @@ class StatsPanel(QGroupBox):
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #3A4A5E;
-                border-color: #4F8EF7;
-                color: #FFFFFF;
+                background-color: #EAF1FB;
+                border-color: #2563EB;
+                color: #1F2937;
             }
             QPushButton:pressed {
-                background-color: #2E3A4D;
-                border-color: #4F8EF7;
+                background-color: #DBEAFE;
+                border-color: #2563EB;
             }
         """
 
@@ -198,7 +220,7 @@ class StatsPanel(QGroupBox):
         layout.addLayout(export_row)
 
         # ---- matplotlib 画布 ----
-        self._figure = Figure(figsize=(8, 3.2), facecolor="#171F2D")
+        self._figure = Figure(figsize=(8, 3.2), facecolor="#FFFFFF")
         self._canvas = FigureCanvas(self._figure)
         self._canvas.setMinimumHeight(260)
         layout.addWidget(self._canvas)
@@ -219,6 +241,25 @@ class StatsPanel(QGroupBox):
         ax.spines["right"].set_visible(False)
         ax.grid(True, axis="y", color=GRID_COLOR, linewidth=0.8, alpha=0.6, linestyle="--")
 
+    def _apply_chart_font(self, *axes):
+        if CHINESE_FONT is None:
+            return
+        for ax in axes:
+            text_items = [
+                ax.title,
+                ax.xaxis.label,
+                ax.yaxis.label,
+                *ax.get_xticklabels(),
+                *ax.get_yticklabels(),
+                *ax.texts,
+            ]
+            for text in text_items:
+                text.set_fontproperties(CHINESE_FONT)
+            legend = ax.get_legend()
+            if legend:
+                for text in legend.get_texts():
+                    text.set_fontproperties(CHINESE_FONT)
+
     def _show_empty_chart(self, message="暂无统计数据", subtitle="点击上方按钮刷新"):
         """显示空白占位图表 - 现代化设计"""
         self._figure.clear()
@@ -230,7 +271,7 @@ class StatsPanel(QGroupBox):
                 ha="center", va="center", fontsize=18,
                 color=TEXT_COLOR, transform=ax.transAxes,
                 fontweight="bold",
-                path_effects=[pe.withStroke(linewidth=2, foreground="#111722")])
+                path_effects=[pe.withStroke(linewidth=2, foreground="#FFFFFF")])
 
         # 副提示
         ax.text(0.5, 0.42, subtitle,
@@ -249,6 +290,7 @@ class StatsPanel(QGroupBox):
             spine.set_visible(False)
 
         self._figure.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
+        self._apply_chart_font(ax)
         self._canvas.draw()
 
     def _refresh_current(self):
@@ -307,8 +349,8 @@ class StatsPanel(QGroupBox):
             # 数值文字
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max_count * 0.05,
                     str(count), ha="center", va="bottom",
-                    color="#FFFFFF", fontsize=12, fontweight="bold",
-                    path_effects=[pe.withStroke(linewidth=3, foreground="#111722")])
+                    color="#1F2937", fontsize=12, fontweight="bold",
+                    path_effects=[pe.withStroke(linewidth=3, foreground="#FFFFFF")])
 
         # 设置x轴标签
         ax.set_xticks(x)
@@ -322,6 +364,7 @@ class StatsPanel(QGroupBox):
 
         # 调整布局
         self._figure.subplots_adjust(left=0.1, right=0.95, top=0.88, bottom=0.15)
+        self._apply_chart_font(ax)
         self._canvas.draw()
 
     def _show_event_chart(self):
@@ -376,9 +419,9 @@ class StatsPanel(QGroupBox):
         # 百分比文字样式 - 更醒目
         for autotext in autotexts:
             autotext.set_fontsize(9)
-            autotext.set_color("#FFFFFF")
+            autotext.set_color("#1F2937")
             autotext.set_fontweight("bold")
-            autotext.set_path_effects([pe.withStroke(linewidth=2, foreground="#111722")])
+            autotext.set_path_effects([pe.withStroke(linewidth=2, foreground="#FFFFFF")])
 
         # 标签样式
         for text in texts:
@@ -397,7 +440,7 @@ class StatsPanel(QGroupBox):
         # 添加中心装饰圆
         center_circle = matplotlib.patches.Circle((0, 0), 0.25,
                                                    facecolor=CHART_BG,
-                                                   edgecolor="#2E3A4D",
+                                                   edgecolor="#CBD5E1",
                                                    linewidth=1.5,
                                                    zorder=10)
         ax.add_patch(center_circle)
@@ -407,6 +450,7 @@ class StatsPanel(QGroupBox):
 
         # 调整布局
         self._figure.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.1)
+        self._apply_chart_font(ax)
         self._canvas.draw()
 
     def _show_alert_trend(self):
@@ -453,9 +497,9 @@ class StatsPanel(QGroupBox):
             for i, (day, count) in enumerate(zip(days, counts)):
                 ax1.annotate(str(count), (day, count),
                              textcoords="offset points", xytext=(0, 12),
-                             ha="center", fontsize=10, color="#FFFFFF",
+                             ha="center", fontsize=10, color="#1F2937",
                              fontweight="bold",
-                             path_effects=[pe.withStroke(linewidth=3, foreground="#111722")])
+                             path_effects=[pe.withStroke(linewidth=3, foreground="#FFFFFF")])
 
             max_count = max(counts) if counts else 1
             ax1.set_ylim(0, max_count * 1.5 + 1)
@@ -494,8 +538,8 @@ class StatsPanel(QGroupBox):
                 ax2.text(bar.get_width() + max(event_counts) * 0.02,
                          bar.get_y() + bar.get_height() / 2,
                          str(count), va="center", ha="left",
-                         color="#FFFFFF", fontsize=11, fontweight="bold",
-                         path_effects=[pe.withStroke(linewidth=2, foreground="#111722")])
+                         color="#1F2937", fontsize=11, fontweight="bold",
+                         path_effects=[pe.withStroke(linewidth=2, foreground="#FFFFFF")])
 
             max_count = max(event_counts) if event_counts else 1
             ax2.set_xlim(0, max_count * 1.25 + 1)
@@ -505,6 +549,7 @@ class StatsPanel(QGroupBox):
 
         # 调整布局
         self._figure.subplots_adjust(left=0.12, right=0.95, top=0.85, bottom=0.15, wspace=0.3)
+        self._apply_chart_font(ax1, ax2)
         self._canvas.draw()
 
     def refresh(self):

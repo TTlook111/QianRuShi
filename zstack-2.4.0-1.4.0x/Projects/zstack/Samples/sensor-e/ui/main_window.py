@@ -66,7 +66,12 @@ class MainWindow(QMainWindow):
         self._last_linked_alert = config.ALERT_SAFE
         self._last_linked_pir_alarm = 0
         self._last_linked_tch = 0
-        self._last_linked_pir_doorbell = 0
+        self._manual_buzzer_control = False
+        self._auto_alarm_active = False
+        self._approach_seconds = 0
+        self._approach_alarm_sent = False
+        self._approach_timer = QTimer(self)
+        self._approach_timer.timeout.connect(self._tick_approach_timer)
 
         # 初始化通信层
         if config.USE_REAL_CLOUD:
@@ -126,19 +131,19 @@ class MainWindow(QMainWindow):
         mode_text = "● 智云连接中" if config.USE_REAL_CLOUD else "● 模拟模式"
         self._conn_label = QLabel(mode_text)
         self._conn_label.setStyleSheet(
-            "color: #F39C12; font-size: 13px; font-weight: bold; background: transparent;"
+            "color: #D97706; font-size: 13px; font-weight: bold; background: transparent;"
         )
         title_layout.addWidget(self._conn_label)
 
         # 分隔
         sep = QLabel("  |  ")
-        sep.setStyleSheet("color: #34425A; background: transparent;")
+        sep.setStyleSheet("color: #CBD5E1; background: transparent;")
         title_layout.addWidget(sep)
 
         # 当前时间
         self._time_label = QLabel("")
         self._time_label.setStyleSheet(
-            "color: #95A3B8; font-size: 13px; background: transparent;"
+            "color: #64748B; font-size: 13px; background: transparent;"
         )
         title_layout.addWidget(self._time_label)
 
@@ -231,9 +236,17 @@ class MainWindow(QMainWindow):
         """
         # 1. 更新内存状态
         self._update_sensor_state(data)
+        self._sync_approach_timer_state(data)
 
         # 2. 刷新门禁看板
-        self._door_panel.update_data(data)
+        display_data = dict(data)
+        if config.FIELD_UNLOCK in display_data:
+            display_data[config.FIELD_DOOR] = int(display_data[config.FIELD_UNLOCK])
+        elif self._node_name_from_data(data) != "sensor-b":
+            display_data.pop(config.FIELD_DOOR, None)
+        if self._sensor_state.pir:
+            display_data[config.FIELD_STAY] = self._approach_seconds
+        self._door_panel.update_data(display_data)
 
         # 3. 刷新环境面板
         self._env_panel.update_data(data)
@@ -259,6 +272,46 @@ class MainWindow(QMainWindow):
             f"alert={self._sensor_state.alert}"
         )
 
+    def _sync_approach_timer_state(self, data: dict):
+        """根据 PIR 状态启动/停止上位机本地靠近计时。"""
+        if config.FIELD_PIR not in data:
+            return
+
+        pir = int(data.get(config.FIELD_PIR, 0))
+        if pir:
+            incoming_stay = int(data.get(config.FIELD_STAY, self._approach_seconds))
+            self._approach_seconds = max(self._approach_seconds, incoming_stay)
+            if not self._approach_timer.isActive():
+                self._approach_timer.start(1000)
+        else:
+            self._approach_timer.stop()
+            self._approach_seconds = 0
+            self._approach_alarm_sent = False
+            self._sensor_state.stay = 0
+            self._door_panel.update_data({config.FIELD_PIR: 0, config.FIELD_STAY: 0})
+
+    def _tick_approach_timer(self):
+        """PIR 持续为 1 时每秒刷新靠近时长，45 秒触发长响报警。"""
+        if not self._sensor_state.pir:
+            self._approach_timer.stop()
+            return
+
+        self._approach_seconds += 1
+        self._sensor_state.stay = self._approach_seconds
+        self._door_panel.update_data({
+            config.FIELD_PIR: 1,
+            config.FIELD_STAY: self._approach_seconds,
+        })
+
+        if self._approach_seconds >= 45 and not self._approach_alarm_sent:
+            self._approach_alarm_sent = True
+            self._auto_alarm_active = True
+            self._last_linked_alert = config.ALERT_ALARM
+            cmd = {"alert": config.ALERT_ALARM, "buzz": 1, "rgb": [255, 0, 0]}
+            self._cloud_api.send_to_sensor_b(cmd)
+            self._system_panel.append_command("sensor-b", cmd)
+            logger.info("靠近超过45秒，联动长响报警到 sensor-b: %s", cmd)
+
     def _sync_alert_to_sensor_b(self, data: dict):
         """把 sensor-c 的告警等级联动到 sensor-b 声光告警执行节点。"""
         if config.FIELD_ALERT not in data:
@@ -267,11 +320,14 @@ class MainWindow(QMainWindow):
         alert = int(data.get(config.FIELD_ALERT, config.ALERT_SAFE))
         if self._sensor_state.night and self._sensor_state.pir and alert < config.ALERT_ALARM:
             return
+        if alert == config.ALERT_SAFE and (self._manual_buzzer_control or not self._auto_alarm_active):
+            return
 
         if alert == self._last_linked_alert:
             return
 
         self._last_linked_alert = alert
+        self._auto_alarm_active = alert > config.ALERT_SAFE
         cmd = {"alert": alert}
         self._cloud_api.send_to_sensor_b(cmd)
         self._system_panel.append_command("sensor-b", cmd)
@@ -290,30 +346,33 @@ class MainWindow(QMainWindow):
             return
 
         self._last_linked_pir_alarm = should_alarm
-        cmd = {"alert": config.ALERT_ALARM if should_alarm else config.ALERT_SAFE}
+        if not should_alarm and self._manual_buzzer_control:
+            return
+
+        if should_alarm:
+            cmd = {"alert": config.ALERT_ALARM, "buzz": 1, "rgb": [255, 0, 0]}
+        else:
+            cmd = {"alert": config.ALERT_SAFE}
         self._last_linked_alert = cmd["alert"]
+        self._auto_alarm_active = should_alarm == 1
         self._cloud_api.send_to_sensor_b(cmd)
         self._system_panel.append_command("sensor-b", cmd)
         logger.info("夜间靠近联动到 sensor-b: %s", cmd)
 
     def _sync_doorbell_to_sensor_b(self, data: dict):
-        """把 sensor-c 的 touch/门铃事件联动到 sensor-b 蜂鸣器和蓝灯。"""
-        if config.FIELD_TCH not in data and config.FIELD_PIR not in data:
+        """只有 sensor-c 的 touch/门铃事件联动短响，PIR 只用于靠近/报警。"""
+        if config.FIELD_TCH not in data:
             return
 
-        tch = int(data.get(config.FIELD_TCH, self._sensor_state.tch))
-        pir = int(data.get(config.FIELD_PIR, self._sensor_state.pir))
-        night = int(data.get(config.FIELD_NIGHT, self._sensor_state.night))
+        tch = int(data.get(config.FIELD_TCH, 0))
         doorbell_by_tch = tch == 1 and self._last_linked_tch != 1
-        doorbell_by_touch_pir = (not night) and pir == 1 and self._last_linked_pir_doorbell != 1
 
-        if doorbell_by_tch or doorbell_by_touch_pir:
+        if doorbell_by_tch:
             cmd = {"buzz": 500, "rgb": [0, 0, 255]}
             self._cloud_api.send_to_sensor_b(cmd)
             self._system_panel.append_command("sensor-b", cmd)
             logger.info("联动门铃到 sensor-b: %s", cmd)
         self._last_linked_tch = tch
-        self._last_linked_pir_doorbell = pir if not night else 0
 
     def _update_sensor_state(self, data: dict):
         """更新内存中的传感器状态"""
@@ -325,8 +384,6 @@ class MainWindow(QMainWindow):
             self._sensor_state.lux = int(data[config.FIELD_LUX])
         if config.FIELD_PIR in data:
             self._sensor_state.pir = int(data[config.FIELD_PIR])
-        if config.FIELD_DOOR in data:
-            self._sensor_state.door = int(data[config.FIELD_DOOR])
         if config.FIELD_TCH in data:
             self._sensor_state.tch = int(data[config.FIELD_TCH])
         if config.FIELD_ALERT in data:
@@ -343,11 +400,19 @@ class MainWindow(QMainWindow):
             self._sensor_state.grating = int(data[config.FIELD_GRATING])
         if config.FIELD_UNLOCK in data:
             self._sensor_state.unlock = int(data[config.FIELD_UNLOCK])
+            self._sensor_state.door = self._sensor_state.unlock
         if config.FIELD_BUZZ in data:
             self._sensor_state.buzz = int(data[config.FIELD_BUZZ])
         if config.FIELD_RGB in data:
             self._sensor_state.rgb = data[config.FIELD_RGB]
         self._sensor_state.last_update = datetime.now()
+
+    def _node_name_from_data(self, data: dict):
+        addr = data.get("_addr", "")
+        for name, mac in config.NODE_MAC.items():
+            if addr == mac:
+                return name
+        return ""
 
     def _save_to_db(self, data: dict):
         """将传感器数据保存到数据库"""
@@ -497,6 +562,16 @@ class MainWindow(QMainWindow):
         logger.info("发送命令到 %s: %s", target, send_cmd)
         self._system_panel.append_command(target, send_cmd)
 
+        if target == "sensor-b" and ("buzz" in send_cmd or "alert" in send_cmd or send_cmd.get("reset") == 1):
+            buzz = int(send_cmd.get("buzz", -1))
+            alert = int(send_cmd.get("alert", -1))
+            if buzz == 0 or alert == 0 or send_cmd.get("reset") == 1:
+                self._manual_buzzer_control = False
+                self._auto_alarm_active = False
+                self._last_linked_alert = config.ALERT_SAFE
+            elif buzz > 0 or alert > 0:
+                self._manual_buzzer_control = True
+
         # 本地先做一次乐观刷新，避免演示时等待节点回报造成“按钮没反应”的错觉。
         if target == "sensor-b" and "unlock" in send_cmd:
             unlock = int(send_cmd["unlock"])
@@ -602,5 +677,6 @@ class MainWindow(QMainWindow):
         else:
             self._cloud_api.stop_polling()
         self._clock_timer.stop()
+        self._approach_timer.stop()
         logger.info("主窗口已关闭")
         event.accept()

@@ -20,10 +20,38 @@ import config
 try:
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
     from matplotlib.figure import Figure
+    from matplotlib import font_manager
+    import matplotlib
     import matplotlib.pyplot as plt
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
+
+
+def _setup_chinese_font():
+    """让 matplotlib 直接使用 Windows 中文字体，避免标题显示成方块。"""
+    if not HAS_MATPLOTLIB:
+        return
+    candidates = [
+        r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\simhei.ttf",
+        r"C:\Windows\Fonts\simsun.ttc",
+    ]
+    for font_path in candidates:
+        try:
+            font_manager.fontManager.addfont(font_path)
+            font_prop = font_manager.FontProperties(fname=font_path)
+            font_name = font_prop.get_name()
+            matplotlib.rcParams["font.family"] = font_name
+            matplotlib.rcParams["font.sans-serif"] = [font_name, "Microsoft YaHei", "SimHei", "Arial"]
+            matplotlib.rcParams["axes.unicode_minus"] = False
+            return font_prop
+        except Exception:
+            continue
+    return None
+
+
+CHINESE_FONT = _setup_chinese_font()
 
 
 class EnvGauge(QFrame):
@@ -43,7 +71,7 @@ class EnvGauge(QFrame):
         header = QLabel(f"{icon} {title}")
         header.setAlignment(Qt.AlignCenter)
         header.setFont(QFont("Microsoft YaHei", 11, QFont.Bold))
-        header.setStyleSheet("color: #B0B0D0; background: transparent;")
+        header.setStyleSheet("color: #334155; background: transparent;")
         layout.addWidget(header)
 
         # LCD 数字显示
@@ -51,8 +79,8 @@ class EnvGauge(QFrame):
         self._lcd.setSegmentStyle(QLCDNumber.Flat)
         self._lcd.setMinimumHeight(48)
         self._lcd.setStyleSheet(
-            f"QLCDNumber {{ color: {color}; background-color: #1A1A2A; "
-            f"border: 1px solid #3A3A5C; border-radius: 6px; }}"
+            f"QLCDNumber {{ color: {color}; background-color: #F8FAFC; "
+            f"border: 1px solid #CBD5E1; border-radius: 6px; }}"
         )
         self._lcd.display(0)
         layout.addWidget(self._lcd)
@@ -77,10 +105,10 @@ class RealTimeChart(FigureCanvasQTAgg if HAS_MATPLOTLIB else QWidget):
             super().__init__(parent)
             return
 
-        plt.style.use('dark_background')
-        self.fig = Figure(figsize=(6, 2.5), dpi=80, facecolor='#171F2D')
+        plt.style.use('default')
+        self.fig = Figure(figsize=(6, 2.5), dpi=80, facecolor='#FFFFFF')
         self.axes = self.fig.add_subplot(111)
-        self.axes.set_facecolor('#111722')
+        self.axes.set_facecolor('#FFFFFF')
         self.fig.subplots_adjust(left=0.12, right=0.95, top=0.88, bottom=0.18)
 
         super().__init__(self.fig)
@@ -100,14 +128,29 @@ class RealTimeChart(FigureCanvasQTAgg if HAS_MATPLOTLIB else QWidget):
     def _setup_axes(self):
         """设置坐标轴样式"""
         self.axes.clear()
-        self.axes.set_title(self._title, color='#C9D3E2', fontsize=11, fontweight='bold', pad=8)
-        self.axes.set_ylabel(self._ylabel, color='#95A3B8', fontsize=9)
-        self.axes.tick_params(colors='#6A7A8C', labelsize=8)
-        self.axes.spines['bottom'].set_color('#34425A')
-        self.axes.spines['left'].set_color('#34425A')
+        self.axes.set_title(self._title, color='#1F2937', fontsize=11, fontweight='bold', pad=8)
+        self.axes.set_ylabel(self._ylabel, color='#64748B', fontsize=9)
+        self.axes.tick_params(colors='#64748B', labelsize=8)
+        self.axes.spines['bottom'].set_color('#CBD5E1')
+        self.axes.spines['left'].set_color('#CBD5E1')
         self.axes.spines['top'].set_visible(False)
         self.axes.spines['right'].set_visible(False)
-        self.axes.grid(True, color='#2E3A4D', linewidth=0.5, alpha=0.5)
+        self.axes.grid(True, color='#E2E8F0', linewidth=0.6, alpha=0.9)
+        self._apply_chart_font()
+
+    def _apply_chart_font(self):
+        if CHINESE_FONT is None:
+            return
+        text_items = [
+            self.axes.title,
+            self.axes.xaxis.label,
+            self.axes.yaxis.label,
+            *self.axes.get_xticklabels(),
+            *self.axes.get_yticklabels(),
+            *self.axes.texts,
+        ]
+        for text in text_items:
+            text.set_fontproperties(CHINESE_FONT)
 
     def add_point(self, value):
         """添加一个数据点并刷新图表"""
@@ -143,6 +186,7 @@ class RealTimeChart(FigureCanvasQTAgg if HAS_MATPLOTLIB else QWidget):
                 fontweight='bold'
             )
 
+        self._apply_chart_font()
         self.draw()
 
 
@@ -198,7 +242,7 @@ class EnvInfoPanel(QGroupBox):
             layout.addWidget(self._tab_widget)
         else:
             no_chart_label = QLabel("💡 安装 matplotlib 可显示实时曲线图: pip install matplotlib")
-            no_chart_label.setStyleSheet("color: #95A3B8; font-size: 11px; padding: 8px;")
+            no_chart_label.setStyleSheet("color: #64748B; font-size: 11px; padding: 8px;")
             no_chart_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(no_chart_label)
 

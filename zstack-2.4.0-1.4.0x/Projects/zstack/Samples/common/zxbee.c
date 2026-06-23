@@ -71,6 +71,7 @@ char* ZXBeeEnd(void)
   return NULL;
 }
 
+// 校验和计算
 uint8 ZXBee_CheckSum(uint8 *buf, int len)
 {
   uint16 sum = 0;
@@ -81,6 +82,7 @@ uint8 ZXBee_CheckSum(uint8 *buf, int len)
   return (uint8)(sum & 0xFF);
 }
 
+// 帧构建
 int ZXBee_BuildFrame(uint16 dst, uint16 src, uint8 cmd, char *payload, uint8 *out)
 {
   uint8 plen;
@@ -101,6 +103,7 @@ int ZXBee_BuildFrame(uint16 dst, uint16 src, uint8 cmd, char *payload, uint8 *ou
   return plen + 9;
 }
 
+// 帧解析
 int ZXBee_ParseFrame(char *pkg, int len, ZXBeeFrame *frame)
 {
   uint8 plen;
@@ -122,6 +125,7 @@ int ZXBee_ParseFrame(char *pkg, int len, ZXBeeFrame *frame)
   return 1;
 }
 
+// JSON解析
 static int ZXBeeDecodeJsonPayload(char *payload)
 {
   char *p;

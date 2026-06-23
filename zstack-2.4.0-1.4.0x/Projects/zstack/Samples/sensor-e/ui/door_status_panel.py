@@ -31,21 +31,21 @@ class StatusIndicator(QFrame):
         self._dot = QLabel("●")
         self._dot.setAlignment(Qt.AlignCenter)
         self._dot.setFont(QFont("Arial", 18))
-        self._dot.setStyleSheet("color: #555555; background: transparent;")
+        self._dot.setStyleSheet("color: #CBD5E1; background: transparent;")
         layout.addWidget(self._dot)
 
         # 标题
         title_label = QLabel(title)
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setFont(QFont("Microsoft YaHei", 11, QFont.Bold))
-        title_label.setStyleSheet("color: #B0B0D0; background: transparent;")
+        title_label.setStyleSheet("color: #334155; background: transparent;")
         layout.addWidget(title_label)
 
         # 状态文字
         self._status = QLabel("--")
         self._status.setAlignment(Qt.AlignCenter)
         self._status.setFont(QFont("Microsoft YaHei", 10))
-        self._status.setStyleSheet("color: #808090; background: transparent;")
+        self._status.setStyleSheet("color: #64748B; background: transparent;")
         self._status.setObjectName("status_label")
         layout.addWidget(self._status)
 
@@ -62,8 +62,8 @@ class StatusIndicator(QFrame):
             self._dot.setStyleSheet("color: #2ECC71; background: transparent;")
             self._status.setStyleSheet("color: #2ECC71; background: transparent;")
         else:
-            self._dot.setStyleSheet("color: #555555; background: transparent;")
-            self._status.setStyleSheet("color: #808090; background: transparent;")
+            self._dot.setStyleSheet("color: #CBD5E1; background: transparent;")
+            self._status.setStyleSheet("color: #64748B; background: transparent;")
         if text:
             self._status.setText(text)
 
@@ -90,8 +90,8 @@ class StatusIndicator(QFrame):
             self._dot.setStyleSheet(f"color: {self._blink_color}; background: transparent;")
             self._status.setStyleSheet(f"color: {self._blink_color}; background: transparent;")
         else:
-            self._dot.setStyleSheet("color: #555555; background: transparent;")
-            self._status.setStyleSheet("color: #555555; background: transparent;")
+            self._dot.setStyleSheet("color: #CBD5E1; background: transparent;")
+            self._status.setStyleSheet("color: #CBD5E1; background: transparent;")
 
     def _stop_blink(self):
         """停止闪烁"""
@@ -119,7 +119,7 @@ class EnvValueCard(QFrame):
         self._title = QLabel(title)
         self._title.setAlignment(Qt.AlignCenter)
         self._title.setFont(QFont("Microsoft YaHei", 10))
-        self._title.setStyleSheet("color: #95A3B8; background: transparent;")
+        self._title.setStyleSheet("color: #64748B; background: transparent;")
         layout.addWidget(self._title)
 
         # 数值行
@@ -129,19 +129,19 @@ class EnvValueCard(QFrame):
         self._value = QLabel("--")
         self._value.setAlignment(Qt.AlignCenter)
         self._value.setFont(QFont("Microsoft YaHei", 20, QFont.Bold))
-        self._value.setStyleSheet("color: #E8ECF3; background: transparent;")
+        self._value.setStyleSheet("color: #1F2937; background: transparent;")
         val_row.addWidget(self._value)
 
         if unit:
             self._unit = QLabel(unit)
             self._unit.setAlignment(Qt.AlignBottom)
             self._unit.setFont(QFont("Microsoft YaHei", 10))
-            self._unit.setStyleSheet("color: #95A3B8; background: transparent;")
+            self._unit.setStyleSheet("color: #64748B; background: transparent;")
             val_row.addWidget(self._unit)
 
         layout.addLayout(val_row)
 
-    def set_value(self, value, color="#E8ECF3"):
+    def set_value(self, value, color="#1F2937"):
         """更新数值"""
         self._value.setText(str(value))
         self._value.setStyleSheet(f"color: {color}; background: transparent;")
@@ -284,7 +284,7 @@ class DoorStatusPanel(QGroupBox):
             stay = int(data.get(config.FIELD_STAY, 0))
             if pir == 0:
                 stay = 0
-            color = "#E74C3C" if stay > 10 else "#E8ECF3"
+            color = "#E74C3C" if stay > 10 else "#1F2937"
             self._stay_card.set_value(stay, color)
 
         # ---- NIGHT 夜间模式 ----

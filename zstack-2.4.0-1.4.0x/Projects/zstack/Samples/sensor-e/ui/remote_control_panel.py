@@ -16,7 +16,7 @@ def make_tooltip(title, target, command, reaction, detail=""):
     """生成格式化的悬停提示"""
     lines = [
         f"<b>{title}</b>",
-        f"<hr style='color:#34425A;'>",
+        f"<hr style='color:#CBD5E1;'>",
         f"<b>🎯 目标模块：</b>{target}",
         f"<b>📤 发送命令：</b><code>{command}</code>",
         f"<b>📥 硬件反应：</b>{reaction}",
@@ -47,14 +47,14 @@ class RemoteControlPanel(QGroupBox):
         sensor_b_header = QLabel("━━━ sensor-b 控制执行节点 (602) ━━━")
         sensor_b_header.setAlignment(Qt.AlignCenter)
         sensor_b_header.setStyleSheet(
-            "color: #3498DB; font-size: 12px; font-weight: bold; "
-            "background: #171F2D; padding: 4px; border-radius: 4px;"
+            "color: #2563EB; font-size: 12px; font-weight: bold; "
+            "background: #EAF1FB; padding: 4px; border-radius: 4px;"
         )
         layout.addWidget(sensor_b_header)
 
         # ---- 门锁控制行 ----
         lock_label = QLabel("🔒 门锁控制")
-        lock_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
+        lock_label.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         layout.addWidget(lock_label)
 
         lock_row = QHBoxLayout()
@@ -87,7 +87,7 @@ class RemoteControlPanel(QGroupBox):
 
         # ---- 门铃控制行 ----
         bell_label = QLabel("🔔 门铃控制")
-        bell_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
+        bell_label.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         layout.addWidget(bell_label)
 
         bell_row = QHBoxLayout()
@@ -126,7 +126,7 @@ class RemoteControlPanel(QGroupBox):
 
         # ---- 告警控制行 ----
         alert_label = QLabel("🚨 告警控制")
-        alert_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
+        alert_label.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         layout.addWidget(alert_label)
 
         alert_row = QHBoxLayout()
@@ -137,7 +137,7 @@ class RemoteControlPanel(QGroupBox):
         btn_alarm.setToolTip(make_tooltip(
             "🚨 触发告警",
             "sensor-b (控制执行节点 602)",
-            '{"alert": 2}',
+            '{"alert": 2, "buzz": 1, "rgb": [255, 0, 0]}',
             "告警等级设为 2（报警）<br>RGB灯变红色<br>蜂鸣器持续长响",
             "最高告警等级，需要手动解除"
         ))
@@ -168,14 +168,14 @@ class RemoteControlPanel(QGroupBox):
         sensor_c_header = QLabel("━━━ sensor-c 安防检测节点 (603) ━━━")
         sensor_c_header.setAlignment(Qt.AlignCenter)
         sensor_c_header.setStyleSheet(
-            "color: #8E44AD; font-size: 12px; font-weight: bold; "
-            "background: #171F2D; padding: 4px; border-radius: 4px;"
+            "color: #7C3AED; font-size: 12px; font-weight: bold; "
+            "background: #F3E8FF; padding: 4px; border-radius: 4px;"
         )
         layout.addWidget(sensor_c_header)
 
         # ---- 夜间模式控制行 ----
         night_label = QLabel("🌙 夜间模式")
-        night_label.setStyleSheet("color: #95A3B8; font-size: 11px; background: transparent;")
+        night_label.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         layout.addWidget(night_label)
 
         night_row = QHBoxLayout()
@@ -211,7 +211,7 @@ class RemoteControlPanel(QGroupBox):
         self._status_label = QLabel("就绪")
         self._status_label.setAlignment(Qt.AlignCenter)
         self._status_label.setStyleSheet(
-            "color: #808090; font-size: 11px; padding: 4px; background: transparent;"
+            "color: #64748B; font-size: 11px; padding: 4px; background: transparent;"
         )
         layout.addWidget(self._status_label)
 
@@ -242,8 +242,8 @@ class RemoteControlPanel(QGroupBox):
         self.command_requested.emit(cmd)
 
     def _on_alarm(self):
-        """触发告警：alert=2"""
-        cmd = {"alert": 2}
+        """触发告警：alert=2 + 蜂鸣器长响 + RGB红灯"""
+        cmd = {"alert": 2, "buzz": 1, "rgb": [255, 0, 0]}
         self._set_status("🚨 已触发告警 → sensor-b", "#E74C3C")
         self.command_requested.emit(cmd)
 
