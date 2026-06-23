@@ -68,6 +68,9 @@ static uint32 doorbell_start_time = 0;                          // 修复#9: 门
 /* 修复#5: 蜂鸣器用户静音标志（允许在告警模式下单独静音蜂鸣器） */
 static uint8  buzz_user_muted = 0;                              // 0=未静音 1=用户手动静音
 
+/* 用户手动设置RGB标志：1=用户通过rgb/D1命令设置了颜色，sensorCheck不应覆盖 */
+static uint8  user_rgb_override = 0;
+
 /*********************************************************************************************
 * 名称：rgbSet()
 * 功能：直接设置RGB灯三通道
@@ -103,6 +106,23 @@ static void rgbSet(uint8 r, uint8 g, uint8 b)
     RGB_B = RGB_ON;
   } else {
     RGB_B = RGB_OFF;
+  }
+}
+
+/*********************************************************************************************
+* 名称：_restore_led_for_alert()
+* 功能：根据告警等级恢复RGB灯默认颜色（辅助函数）
+* 参数：level - 告警等级 (ALERT_SAFE/ALERT_ATTENTION/ALERT_ALARM)
+* 返回：无
+* 修改：[新增] 统一LED状态管理，避免告警解除后LED残留
+* 注释：SAFE=绿灯, ATTENTION=蓝灯, ALARM=红灯
+*********************************************************************************************/
+static void _restore_led_for_alert(uint8 level)
+{
+  switch (level) {
+    case ALERT_SAFE:      rgbSet(0, 255, 0); break;                 // 绿灯 = 安全
+    case ALERT_ATTENTION: rgbSet(0, 0, 255); break;                 // 蓝灯 = 注意
+    case ALERT_ALARM:     rgbSet(255, 0, 0); break;                 // 红灯 = 报警
   }
 }
 
@@ -190,6 +210,7 @@ static void relayLock(void)
 static void doorbellTrigger(void)
 {
   doorbell_active = 1;                                          // 标记门铃激活
+  user_rgb_override = 0;                                        // 门铃蓝灯优先于用户RGB
   doorbell_start_time = osal_GetSystemClock();                  // 修复#9: 记录触发时间戳
   buzzerShort(500);                                             // 蜂鸣器短响500ms（同时启动MY_BUZZER_EVT）
   rgbSet(0, 0, 255);                                            // RGB蓝灯亮
@@ -303,11 +324,11 @@ void sensorCheck(void)
   if (doorbell_active) {
     if (osal_GetSystemClock() - doorbell_start_time >= 5000) {
       doorbell_active = 0;                                       // 5秒后清除门铃标志
-      /* 恢复告警等级对应颜色 */
-      switch (alert_level) {
-        case ALERT_SAFE:      rgbSet(0, 255, 0); break;         // 绿灯
-        case ALERT_ATTENTION: rgbSet(0, 0, 255); break;         // 蓝灯
-        case ALERT_ALARM:     rgbSet(255, 0, 0); break;         // 红灯
+      /* 恢复告警等级对应颜色（报警模式下蜂鸣器响则蓝灯） */
+      if (alert_level == ALERT_ALARM && buzz_mode > 0) {
+        rgbSet(0, 0, 255);                                       // 蜂鸣器响 → 蓝灯
+      } else {
+        _restore_led_for_alert(alert_level);
       }
     }
   }
@@ -315,29 +336,43 @@ void sensorCheck(void)
   /* 短响模式期间不做告警处理 */
   if (buzz_mode == 2) return;
 
-  /* 根据告警等级维护蜂鸣器状态（始终执行，不被门铃抑制） */
+  /* 根据告警等级维护LED和蜂鸣器状态
+   * 修复：user_rgb_override=1时跳过LED覆盖，尊重用户手动设置的颜色 */
   switch (alert_level) {
     case ALERT_SAFE:
-      /* 安全模式下不主动覆盖RGB，允许远程rgb命令生效 */
+      /* 安全模式：仅在用户未手动设置RGB时恢复绿灯 */
+      if (!user_rgb_override) {
+        if (!(rgb_r == 0 && rgb_g == 255 && rgb_b == 0)) {
+          _restore_led_for_alert(ALERT_SAFE);
+        }
+      }
       break;
 
     case ALERT_ATTENTION:
-      /* 门铃期间不覆盖蓝灯（已经是蓝色），非门铃时设置蓝灯 */
-      if (!doorbell_active) {
+      /* 用户手动设置的RGB优先，但门铃蓝灯也优先 */
+      if (!user_rgb_override && !doorbell_active) {
         if (!(rgb_r == 0 && rgb_g == 0 && rgb_b == 255)) {
-          rgbSet(0, 0, 255);                                     // 蓝灯
+          _restore_led_for_alert(ALERT_ATTENTION);               // 蓝灯
         }
       }
       break;
 
     case ALERT_ALARM:
-      /* 门铃期间不覆盖蓝灯，但蜂鸣器告警始终生效（安全优先） */
-      if (!doorbell_active) {
-        if (!(rgb_r == 255 && rgb_g == 0 && rgb_b == 0)) {
-          rgbSet(255, 0, 0);                                     // 红灯
+      /* 告警模式：用户手动RGB不覆盖，但门铃期间不覆盖蓝灯 */
+      if (!user_rgb_override && !doorbell_active) {
+        /* 蜂鸣器响时亮蓝灯，蜂鸣器关时亮红灯 */
+        if (buzz_mode > 0) {
+          if (!(rgb_r == 0 && rgb_g == 0 && rgb_b == 255)) {
+            rgbSet(0, 0, 255);                                   // 蓝灯 = 报警中
+          }
+        } else {
+          if (!(rgb_r == 255 && rgb_g == 0 && rgb_b == 0)) {
+            rgbSet(255, 0, 0);                                   // 红灯 = 告警静音
+          }
         }
       }
-      /* 蜂鸣器告警不受门铃抑制（安全优先） */
+      /* 蜂鸣器告警不受用户RGB覆盖影响（安全优先）
+       * 修复：门铃短响结束后(buzz_mode==0)，如果仍在告警状态则重启蜂鸣器 */
       if (buzz_mode == 0 && !buzz_user_muted) {
         buzzerOn();                                              // 蜂鸣器长响
         buzz_mode = 1;
@@ -376,6 +411,7 @@ void sensorControl(uint8 cmd)
 {
   /* 修复#6: 同步更新状态变量，避免GPIO/state desync */
   D1 = cmd;                                                      // 更新D1状态
+  user_rgb_override = 1;                                         // D1命令设置的LED不被sensorCheck覆盖
 
   /* RGB控制 - 同步rgb_r/g/b */
   if (cmd & 0x01) {
@@ -488,6 +524,7 @@ int ZXBeeUserProcess(char *ptag, char *pval)
       relayUnlock();                                             // 开门，保持开门
       buzzerOff();                                               // 修复: 关闭告警蜂鸣器
       alert_level = ALERT_SAFE;                                  // 开门后恢复正常
+      user_rgb_override = 0;                                     // 解锁后由alert系统管理LED
       rgbSet(0, 255, 0);                                         // 绿灯表示开门成功
     } else {
       relayLock();                                               // 手动关门
@@ -528,6 +565,7 @@ int ZXBeeUserProcess(char *ptag, char *pval)
   /* ========== RGB灯控制 ========== */
   if (0 == strcmp("rgb", ptag)) {
     sensorSetRgb(pval);                                          // 解析并设置RGB
+    user_rgb_override = 1;                                       // 标记用户手动设置，sensorCheck不覆盖
     sprintf(p, "[%u,%u,%u]", rgb_r, rgb_g, rgb_b);
     ZXBeeAdd("rgb", p);
     syncD1();                                                    // 同步D1
@@ -540,6 +578,7 @@ int ZXBeeUserProcess(char *ptag, char *pval)
       alert_level = ALERT_SAFE;                                  // 恢复安全等级
       buzzerOff();                                               // 关闭蜂鸣器
       buzz_user_muted = 0;                                       // 清除静音标志
+      user_rgb_override = 0;                                     // 清除用户RGB覆盖
       doorbell_active = 0;                                       // 清除门铃状态
       relay_auto_flag = 0;                                       // 清除继电器自动标志
       if (unlock_state) {
@@ -560,18 +599,19 @@ int ZXBeeUserProcess(char *ptag, char *pval)
     if (val > ALERT_ALARM) val = ALERT_ALARM;
     alert_level = (uint8)val;
     buzz_user_muted = 0;                                         // 切换告警等级时清除静音
+    user_rgb_override = 0;                                       // 告警命令接管LED控制
     /* 修复: 根据新等级立即更新硬件状态 */
     switch (alert_level) {
       case ALERT_SAFE:
         buzzerOff();                                             // 关闭蜂鸣器
-        rgbSet(0, 255, 0);                                       // 绿灯
+        _restore_led_for_alert(ALERT_SAFE);                      // 绿灯
         break;
       case ALERT_ATTENTION:
         buzzerOff();                                             // 关闭蜂鸣器
-        rgbSet(0, 0, 255);                                       // 蓝灯
+        _restore_led_for_alert(ALERT_ATTENTION);                 // 蓝灯
         break;
       case ALERT_ALARM:
-        rgbSet(255, 0, 0);                                       // 红灯
+        rgbSet(0, 0, 255);                                       // 蓝灯 = 报警中
         if (buzz_mode == 0) { buzzerOn(); buzz_mode = 1; }      // 蜂鸣器响
         break;
     }
@@ -673,19 +713,19 @@ void MyEventProcess(uint16 event)
 
     /* 修复#9: 门铃蓝灯超时由sensorCheck()时间戳管理，此处不处理doorbell_active。
        蜂鸣器关闭后，如果门铃仍激活则保持蓝灯不动，sensorCheck()会在5秒后恢复 */
-    if (!doorbell_active && alert_level == ALERT_SAFE) {
-      /* 非门铃场景，安全模式下恢复绿灯 */
-      rgbSet(0, 255, 0);
+    if (!doorbell_active && alert_level == ALERT_SAFE && !user_rgb_override) {
+      /* 非门铃场景，安全模式下恢复绿灯（尊重用户RGB设置） */
+      _restore_led_for_alert(ALERT_SAFE);
     }
   }
 
   /* ========== 继电器兜底关闭事件（开门不再启动该定时器） ========== */
   if (event & MY_RELAY_EVT) {
     if (relay_auto_flag) {
-      relayLock();                                               // 兜底关门
-      /* 开门结束后，安全模式下恢复绿灯 */
-      if (alert_level == ALERT_SAFE) {
-        rgbSet(0, 255, 0);                                       // 恢复绿灯
+      relayLock();                                               // 自动关门
+      /* 开门结束后，安全模式下恢复绿灯（尊重用户RGB设置） */
+      if (alert_level == ALERT_SAFE && !user_rgb_override) {
+        _restore_led_for_alert(ALERT_SAFE);                      // 恢复绿灯
       }
     }
   }

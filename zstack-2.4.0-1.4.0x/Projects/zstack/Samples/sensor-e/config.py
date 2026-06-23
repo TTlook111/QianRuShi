@@ -5,19 +5,16 @@ E同学：Python应用层负责人
 """
 
 # ======================== 智云平台配置 ========================
-USE_REAL_CLOUD = True                   # True=连接智云平台，False=使用模拟数据
-CLOUD_HOST = "api.zhiyun360.com"
-CLOUD_UID = "736952991135"              # 智云应用 ID
-CLOUD_KEY = "AAECDgYAAQsBUFJUAQADWFNTXAwcUwsHVB4CWwYDFAwGVAMYUwpVC1dTDgsJBwAMXA"
-CLOUD_WS_URL = f"wss://{CLOUD_HOST}:28090"
-CLOUD_TCP_HOST = CLOUD_HOST
-CLOUD_TCP_PORT = 28082
-
-# HTTP 轮询配置（备用模拟/HTTP模式）
-CLOUD_API_BASE_URL = f"http://{CLOUD_HOST}/api"
-CLOUD_API_KEY = CLOUD_KEY
-CLOUD_DEVICE_ID = CLOUD_UID
+CLOUD_API_BASE_URL = "http://api.zhiyun360.com:28080" # 智云平台 HTTP API 地址 (端口一般为28080)
+CLOUD_API_KEY = "AAECDgYAAQsBUFJUAQADWFNTXAwcUwsHVB4CWwYDFAwGVAMYUwpVC1dTDgsJBwAMXA"                      # 智云平台 API Key
+CLOUD_DEVICE_ID = "736952991135"                    # 智云平台设备 ID (UID)
 CLOUD_POLL_INTERVAL_MS = 3000           # HTTP 轮询间隔（毫秒）
+
+# WebSocket 实时推送地址
+CLOUD_WS_URL = "wss://api.zhiyun360.com:28090"
+
+
+
 
 # ======================== 串口配置（备用直连模式）========================
 SERIAL_PORT = "COM3"                    # 串口号，根据实际修改
@@ -45,6 +42,14 @@ NODE_ADDR = {
     "sensor-b":    0x0002,              # 控制执行（602）
     "sensor-c":    0x0003,              # 安防检测（603）
 }
+
+# ======================== ZigBee 节点 MAC 地址（用于云端通信） ========================
+NODE_MAC = {
+    "sensor-a": "00:12:4B:00:1C:45:BD:01", # 环境采集 (601)
+    "sensor-b": "00:12:4B:00:1C:45:BB:54", # 控制执行 (602)
+    "sensor-c": "00:12:4B:00:1C:46:65:DE", # 安防检测 (603)
+}
+
 
 NODE_NAME = {
     0x0000: "协调器",
